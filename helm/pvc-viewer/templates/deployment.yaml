@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pvc-viewer-backend
+  labels:
+    app: pvc-viewer-backend
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: pvc-viewer-backend
+  template:
+    metadata:
+      labels:
+        app: pvc-viewer-backend
+      annotations:
+        checksum/config: {{ include (print .Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: pvc-viewer-backend
+      containers:
+        - name: backend
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PVC_VIEWER_CONFIG
+              value: /config/config.yaml
+            - name: PVC_VIEWER_AGENT_IMAGE
+              value: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          {{- if eq .Values.config.mode.dataPlane "mount-in-backend" }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            {{- range .Values.config.mountPVCs }}
+            - name: pvc-{{ .pvcName | replace "." "-" | replace "/" "-" }}
+              mountPath: {{ .mountPath | quote }}
+              {{- if .readOnly }}
+              readOnly: true
+              {{- end }}
+              {{- if .subPath }}
+              subPath: {{ .subPath | quote }}
+              {{- end }}
+            {{- end }}
+          {{- else }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: pvc-viewer-config
+        {{- if eq .Values.config.mode.dataPlane "mount-in-backend" }}
+        {{- range .Values.config.mountPVCs }}
+        - name: pvc-{{ .pvcName | replace "." "-" | replace "/" "-" }}
+          persistentVolumeClaim:
+            claimName: {{ .pvcName | quote }}
+        {{- end }}
+        {{- end }}
+
+

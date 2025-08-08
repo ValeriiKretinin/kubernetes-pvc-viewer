@@ -1,0 +1,57 @@
+image:
+  repository: ghcr.io/your-org/pvc-viewer
+  tag: v0.1.0
+
+replicaCount: 1
+
+ingress:
+  enabled: false
+  className: ""
+  hosts: []
+  tls: []
+
+config:
+  watch:
+    namespaces:
+      include: ["*"]
+      exclude: ["kube-*"]
+    pvcs:
+      include: ["*"]
+      exclude: []
+    storageClasses:
+      include: ["*"]
+      exclude: []
+  mode:
+    dataPlane: agent-per-pvc
+  allowRWO: false
+  # When dataPlane: mount-in-backend, list PVCs to mount into the backend Pod (same namespace as release)
+  mountPVCs: []
+  #  - pvcName: my-shared-cephfs
+  #    mountPath: /mnt/cephfs
+  #    readOnly: false
+  #    subPath: "" # optional
+  agents:
+    securityDefaults:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      supplementalGroups: [65534]
+      readOnly: false
+    securityOverrides:
+      - match: "cephfs*"
+        fsGroup: 16777216
+        supplementalGroups: [16777216]
+      - match: "nfs*"
+        fsGroup: 1000
+
+rbac:
+  allowedNamespaces: ["*"]
+
+resources:
+  backend:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits: {}
+
+

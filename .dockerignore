@@ -1,0 +1,22 @@
+# VCS
+.git
+
+# Build artifacts
+bin
+
+# IDE/system
+.idea
+.vscode
+.DS_Store
+
+# Node (UI)
+ui/node_modules
+ui/.vite
+ui/.cache
+ui/dist
+
+# Generated frontend assets (we rebuild inside image)
+cmd/backend/static
+
+# Helm packaged charts
+helm/pvc-viewer-*.tgz

@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pvc-viewer-config
+data:
+  config.yaml: |
+    watch:
+      namespaces:
+        include: {{ toYaml .Values.config.watch.namespaces.include | nindent 8 }}
+        exclude: {{ toYaml .Values.config.watch.namespaces.exclude | nindent 8 }}
+      pvcs:
+        include: {{ toYaml .Values.config.watch.pvcs.include | nindent 8 }}
+        exclude: {{ toYaml .Values.config.watch.pvcs.exclude | nindent 8 }}
+      storageClasses:
+        include: {{ toYaml .Values.config.watch.storageClasses.include | nindent 8 }}
+        exclude: {{ toYaml .Values.config.watch.storageClasses.exclude | nindent 8 }}
+    mode:
+      dataPlane: {{ .Values.config.mode.dataPlane | quote }}
+    allowRWO: {{ .Values.config.allowRWO }}
+    agents:
+      securityDefaults:
+        runAsUser: {{ .Values.config.agents.securityDefaults.runAsUser }}
+        runAsGroup: {{ .Values.config.agents.securityDefaults.runAsGroup }}
+        fsGroup: {{ .Values.config.agents.securityDefaults.fsGroup }}
+        supplementalGroups: {{ toYaml .Values.config.agents.securityDefaults.supplementalGroups | nindent 8 }}
+        readOnly: {{ .Values.config.agents.securityDefaults.readOnly }}
+      securityOverrides:
+{{ toYaml .Values.config.agents.securityOverrides | nindent 8 }}
+
+
+

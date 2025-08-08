@@ -1,0 +1,10 @@
+bin/
+ui/node_modules/
+ui/.vite/
+.idea/
+.vscode/
+.DS_Store
+helm/pvc-viewer-*.tgz
+cmd/backend/static/*
+!cmd/backend/static/index.html
+cover.out
