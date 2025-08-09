@@ -16,7 +16,13 @@ We actively maintain the latest main branch and released images. Security fixes 
   - Environment details (Kubernetes version, storage class)
 - We will acknowledge within 72 hours and provide a remediation plan and timeline.
 
-## Data plane security
+## CI security checks
+
+- Container image and Helm IaC are scanned with Trivy in GitHub Actions on every PR and push to main.
+- Builds fail on HIGH/CRITICAL issues by policy; low/medium are reported but may not block.
+- Dependency updates are checked regularly by CI; consider pinning base image digests in production.
+
+## Data plane hardening
 
 - Backend and agents run as non‑root, read‑only root filesystem, no privilege escalation, drop ALL Linux capabilities.
 - File access is limited to mounted PVC paths and protected against path traversal using secure join and symlink containment.
@@ -31,8 +37,8 @@ We actively maintain the latest main branch and released images. Security fixes 
 
 ## Dependency and image security
 
-- Images are scanned with Trivy in CI; Helm chart undergoes IaC scan.
-- Base image: distroless static nonroot.
+- Images are scanned with Trivy in CI and should be scanned in your registry on push.
+- Base image: distroless static nonroot; no shell/package manager.
 
 ## Incident response
 

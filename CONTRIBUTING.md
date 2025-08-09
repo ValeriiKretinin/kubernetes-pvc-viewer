@@ -14,16 +14,17 @@ Thanks for your interest in contributing!
 
 - Go 1.24+
 - Node 20+ (for UI dev)
-- Build UI: `cd ui && npm i && npm run build`
-- Build binaries: `go build ./cmd/backend && go build ./cmd/agent`
-- Docker image (UI+Go inside): `docker build -t pvc-viewer:dev .`
+- UI dev server: `cd ui && npm i && npm run dev` (proxies `/api` to backend on :8080)
+- UI prod build: `cd ui && npm run build` (assets are embedded into backend)
+- Backend/Agent: `go build ./cmd/backend && go build ./cmd/agent`
+- Docker image (multi-stage UI+Go): `docker build -t pvc-viewer:dev .`
 
 ## Pull requests
 
 - Fill in a clear description and motivation
 - Link related issues if any
 - Keep commits clean and rebased on latest `main`
-- CI must pass before merge
+- CI must pass (Go build, UI build, Helm lint, Trivy scans)
 
 ## Code style
 
