@@ -1,4 +1,4 @@
-name: CI
+name: App CI
 
 on:
   push:
@@ -8,7 +8,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-test:
@@ -46,20 +45,8 @@ jobs:
           npm i
           npm run build
 
-  helm-lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: v3.14.4
-      - name: Lint chart
-        run: |
-          helm lint helm/pvc-viewer
-
   docker:
-    needs: [build-test, helm-lint]
+    needs: [build-test]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -105,6 +92,6 @@ jobs:
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_LC }}:sha-${{ github.sha }}
           format: 'table'
-          exit-code: '0'
+          exit-code: '1'
           vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          severity: 'CRITICAL'

@@ -23,6 +23,10 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
           env:
             - name: PVC_VIEWER_CONFIG
               value: /config/config.yaml

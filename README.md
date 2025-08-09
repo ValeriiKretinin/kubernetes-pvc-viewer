@@ -1,7 +1,7 @@
 # PVC Viewer
 
-![CI](https://github.com/ValeriiKretinin/kubernetes-pvc-viewer/actions/workflows/ci.yml/badge.svg)
-![Trivy Helm](https://github.com/ValeriiKretinin/kubernetes-pvc-viewer/actions/workflows/trivy-helm.yml/badge.svg)
+![Build App](https://github.com/ValeriiKretinin/kubernetes-pvc-viewer/actions/workflows/app.yml/badge.svg)
+![Helm CI](https://github.com/ValeriiKretinin/kubernetes-pvc-viewer/actions/workflows/helm.yml/badge.svg)
 
 Browse, download, upload (optional), and delete files on Kubernetes PersistentVolumeClaims with a modern, lightweight UI. Hot-reload configuration via ConfigMap, smart include/exclude matchers, and two data-plane modes:
 
