@@ -25,8 +25,6 @@ The single container image embeds the React UI, backend API gateway/orchestrator
 
 ## Demo
 
-> Put a short demo GIF at `docs/demo.gif` (kept out of the Docker image by .dockerignore). Replace the file and it will show up below.
-
 ![demo](docs/demo.gif)
 
 ## Architecture
