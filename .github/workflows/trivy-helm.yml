@@ -1,0 +1,20 @@
+name: Trivy Helm Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  trivy-helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy scan (Helm chart IAC)
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          scan-type: 'config'
+          scan-ref: 'helm/pvc-viewer'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
