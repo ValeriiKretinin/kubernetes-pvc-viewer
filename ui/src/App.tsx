@@ -16,7 +16,14 @@ export default function App() {
   const [pvcsCache, setPvcsCache] = useState<Record<string, string[]>>({})
   const [pvcsLoading, setPvcsLoading] = useState<boolean>(false)
   const [nsLoading, setNsLoading] = useState<boolean>(false)
-  const [theme, setTheme] = useState<'light'|'dark'>(() => (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
+  const [theme, setTheme] = useState<'light'|'dark'>(() => {
+    try {
+      const saved = localStorage.getItem('pvcviewer.theme') as 'light'|'dark'|null
+      if (saved === 'light' || saved === 'dark') return saved
+    } catch {}
+    // default to dark if nothing saved
+    return 'dark'
+  })
   const [query, setQuery] = useState<string>('')
 
   useEffect(() => {
@@ -48,6 +55,9 @@ export default function App() {
       .catch(()=>{})
       .finally(() => setPvcsLoading(false))
   }, [namespace])
+
+  // persist theme
+  useEffect(() => { try { localStorage.setItem('pvcviewer.theme', theme) } catch {} }, [theme])
 
   return (
     <div className={"flex h-screen "+ (theme==='dark'?'dark':'')}>

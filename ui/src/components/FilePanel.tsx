@@ -57,7 +57,7 @@ export function FilePanel({ namespace, pvc, query }: Props) {
   }, [])
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-gray-950">
+    <div className="h-full flex flex-col bg-white dark:bg-gray-950 surface-gradient">
       <div className="border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center gap-2 text-sm sticky top-0 bg-white/70 dark:bg-gray-950/70 backdrop-blur z-10">
         {breadcrumbs.map((b, i) => (
           <span key={b.path}>
@@ -102,7 +102,7 @@ export function FilePanel({ namespace, pvc, query }: Props) {
                   <td className="p-2 text-right">
                     <ContextMenu
                       onDownload={!e.isDir ? ()=>downloadWithProgress(namespace, pvc, e.path, setProgress, setError) : undefined}
-                      onDelete={()=>handleDelete(namespace, pvc, e.path, !!e.isDir, setError, setPath)}
+                      onDelete={()=>handleDelete(namespace, pvc, e.path, !!e.isDir, setError, ()=>setPath(path))}
                       onUpload={e.isDir ? ()=>handleUpload(namespace, pvc, e.path, setError, ()=>setPath(e.path)) : undefined}
                       onInfo={!e.isDir ? ()=>setPreview(e) : undefined}
                     />
@@ -132,7 +132,7 @@ export function FilePanel({ namespace, pvc, query }: Props) {
                   <div>
                     <ContextMenu
                       onDownload={!e.isDir ? ()=>downloadWithProgress(namespace, pvc, e.path, setProgress, setError) : undefined}
-                      onDelete={()=>handleDelete(namespace, pvc, e.path, !!e.isDir, setError, setPath)}
+                      onDelete={()=>handleDelete(namespace, pvc, e.path, !!e.isDir, setError, ()=>setPath(path))}
                       onUpload={e.isDir ? ()=>handleUpload(namespace, pvc, e.path, setError, ()=>setPath(e.path)) : undefined}
                       onInfo={!e.isDir ? ()=>setPreview(e) : undefined}
                     />

@@ -28,15 +28,15 @@ export function PreviewPane({ entry, namespace, pvc, onClose }: Props) {
   const isText = ['txt','log','json','yaml','yml','md','csv'].includes(ext)
 
   return (
-    <div className="border-t border-gray-200 dark:border-gray-900 p-3 flex gap-3 items-start">
-      <div className="font-medium">Preview: {entry.name}</div>
+    <div className="border-t border-gray-200 dark:border-gray-800 p-3 flex gap-3 items-start">
+      <div className="font-medium text-strong">Preview: {entry.name}</div>
       <button className="ml-auto btn" onClick={onClose}>Close</button>
       <div className="w-full">
         {isImage && blobUrl && <img src={blobUrl} alt={entry.name} className="max-h-96 rounded shadow" />}
-        {isPdf && blobUrl && <iframe src={blobUrl} className="w-full h-96 rounded shadow" />}
+        {isPdf && blobUrl && <iframe src={blobUrl} className="w-full h-96 rounded shadow bg-white" />}
         {isText && blobUrl && <TextViewer url={url} />}
         {!isImage && !isPdf && !isText && (
-          <div className="text-sm opacity-70">No preview available for this file type.</div>
+          <div className="text-sm text-muted">No preview available for this file type.</div>
         )}
       </div>
     </div>
@@ -47,7 +47,7 @@ function TextViewer({ url }: { url: string }) {
   const [text, setText] = useState<string>('')
   useEffect(() => { fetch(url).then(r=>r.text()).then(setText).catch(()=>{}) }, [url])
   return (
-    <pre className="bg-gray-50 dark:bg-gray-900 p-3 rounded shadow max-h-96 overflow-auto text-sm whitespace-pre-wrap">{text}</pre>
+    <pre className="bg-gray-50 dark:bg-gray-900 p-3 rounded shadow max-h-96 overflow-auto text-sm whitespace-pre-wrap text-strong">{text}</pre>
   )
 }
 
