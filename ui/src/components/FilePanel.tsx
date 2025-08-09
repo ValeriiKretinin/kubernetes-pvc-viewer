@@ -21,7 +21,11 @@ export function FilePanel({ namespace, pvc }: Props) {
     if (!namespace || !pvc) return
     const q = new URLSearchParams({ ns: namespace, pvc, path, limit: String(limit), offset: String(offset) })
     fetch(`/api/v1/tree?${q.toString()}`)
-      .then(async r => { setTotal(Number(r.headers.get('X-Total-Count')||'0')); return r.json() })
+      .then(async r => {
+        if (!r.ok) throw new Error(`API ${r.status}`)
+        setTotal(Number(r.headers.get('X-Total-Count')||'0'))
+        try { return await r.json() } catch { return [] }
+      })
       .then(setEntries).catch(e=>setError(String(e)))
   }, [namespace, pvc, path, offset])
 

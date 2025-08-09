@@ -21,7 +21,7 @@ export default function App() {
 
   return (
     <div className={"flex h-screen "+ (theme==='dark'?'dark':'')}>
-      <div className="fixed top-3 right-3 z-10">
+      <div className="fixed top-3 right-3 z-50">
         <button className="px-3 py-1 rounded border bg-white/70 dark:bg-gray-800/70 backdrop-blur" onClick={()=>setTheme(t=>t==='dark'?'light':'dark')}>
           {theme==='dark'?'🌙 Dark':'☀️ Light'}
         </button>
