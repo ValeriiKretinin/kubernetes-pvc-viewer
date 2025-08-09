@@ -37,25 +37,33 @@ Web UI (static)  <—HTTPS—>  Backend (Go)
 - agent-per-pvc (default): backend manages agent Pods per matched PVC
 - mount-in-backend: backend Pod mounts multiple PVCs (defined in values), requires restart on changes
 
-## Quick start
+## Installation (OCI Helm chart)
 
-1) Build and push image
-
-```
-docker build -t YOUR_REGISTRY/pvc-viewer:v0.1.0 .
-docker push YOUR_REGISTRY/pvc-viewer:v0.1.0
-```
-
-2) Install via Helm
+Recommended: install directly from OCI registry (no local build required).
 
 ```
-helm upgrade --install pvc-viewer ./helm/pvc-viewer -n pvc-viewer \
-  --create-namespace \
-  --set image.repository=YOUR_REGISTRY/pvc-viewer \
-  --set image.tag=v0.1.0
+helm registry login ghcr.io -u <your_github_user> -p <token_with_packages_write_or_read>
+
+# stable release
+helm upgrade --install pvc-viewer \
+  oci://ghcr.io/<owner>/charts/pvc-viewer \
+  --version <X.Y.Z> \
+  -n pvc-viewer --create-namespace \
+  --set image.repository=ghcr.io/<owner>/kubernetes-pvc-viewer \
+  --set image.tag=v<X.Y.Z>
+
+# or latest dev build from main (if published by CI)
+helm upgrade --install pvc-viewer \
+  oci://ghcr.io/<owner>/charts/pvc-viewer \
+  --version 0.0.0-<shortsha> \
+  -n pvc-viewer --create-namespace \
+  --set image.repository=ghcr.io/<owner>/kubernetes-pvc-viewer \
+  --set image.tag=latest
 ```
 
 Optionally enable Ingress in `values.yaml` (or via `--set`).
+
+> Note: replace `<owner>` with your GitHub org/user (lowercase). If using another registry, adapt `image.repository`.
 
 ## Configuration (ConfigMap)
 
@@ -135,11 +143,12 @@ Exposes `/metrics` (Prometheus). Add a ServiceMonitor if you use Prometheus Oper
 
 ## Development
 
-Prereqs: Go 1.24+, Node 20 (only for local UI dev).
+Optional (for contributors):
 
-- Dev UI: `cd ui && npm i && npm run dev` (proxies `/api` to backend on :8080).
-- Build UI+Go via Docker only: `docker build -t pvc-viewer:dev .` (UI is built inside the image).
-- Local binaries: `go build ./cmd/backend && go build ./cmd/agent`.
+- Prereqs: Go 1.24+, Node 20 (only for local UI dev)
+- Dev UI: `cd ui && npm i && npm run dev` (proxies `/api` to backend on :8080)
+- Docker build (UI+Go inside image): `docker build -t pvc-viewer:dev .`
+- Local binaries: `go build ./cmd/backend && go build ./cmd/agent`
 
 ## Project layout
 
