@@ -15,7 +15,7 @@ export function FilePanel({ namespace, pvc }: Props) {
   const [progress, setProgress] = useState<number>(0)
   const limit = 200
 
-  useEffect(() => { setPath('/') }, [namespace, pvc])
+  useEffect(() => { setPath('/'); setError('') }, [namespace, pvc])
 
   useEffect(() => {
     if (!namespace || !pvc) return
@@ -48,6 +48,10 @@ export function FilePanel({ namespace, pvc }: Props) {
             {i>0 && <span className="opacity-50">/</span>}<button className="hover:underline" onClick={()=>{setPath(b.path); setOffset(0)}}>{b.name}</button>
           </span>
         ))}
+        <div className="ml-auto flex gap-2">
+          <button className="px-2 py-1 border rounded" onClick={()=>handleUpload(namespace, pvc, path, setError, ()=>setPath(path))}>Upload here</button>
+          <button className="px-2 py-1 border rounded" onClick={()=>handleEmptyDir(namespace, pvc, path, setError, ()=>setPath(path))}>Empty dir</button>
+        </div>
       </div>
       <div className="flex-1 overflow-auto">
         <table className="w-full text-sm">
@@ -165,6 +169,14 @@ function handleUpload(ns:string, pvc:string, dir:string, setError:(s:string)=>vo
     }
   }
   input.click()
+}
+
+function handleEmptyDir(ns:string, pvc:string, dir:string, setError:(s:string)=>void, onDone:()=>void) {
+  const url = `/api/v1/empty-dir?ns=${encodeURIComponent(ns)}&pvc=${encodeURIComponent(pvc)}&path=${encodeURIComponent(dir)}`
+  fetch(url, { method: 'POST' }).then(r => {
+    if (!r.ok) throw new Error(`Empty dir failed: ${r.status}`)
+    onDone()
+  }).catch(e=>setError(String(e)))
 }
 
 function formatMode(mode?: number) {

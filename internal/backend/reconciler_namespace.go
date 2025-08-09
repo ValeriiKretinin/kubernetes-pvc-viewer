@@ -21,17 +21,58 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 		"app":                 "pvc-viewer-agent-ns",
 		"pvcviewer.k8s.io/ns": namespace,
 	}
-	// Build volumes and mounts
+	// Build volumes and mounts; collect security requirements from overrides by storageClass
 	volumes := make([]corev1.Volume, 0, len(pvcNames))
 	mounts := make([]corev1.VolumeMount, 0, len(pvcNames))
 	sort.Strings(pvcNames)
+	// gather override groups, and per-PVC readOnly
+	supplemental := append([]int64{}, r.Defaults.SupplementalGroups...)
+	var fsGroupCandidate *int64 = r.Defaults.FSGroup
+	sameFsGroup := true
+	pvcReadOnly := map[string]bool{}
 	for _, pvc := range pvcNames {
 		vname := "v-" + pvc
+		// detect storageClass
+		sc := ""
+		if p, err := r.Client.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, pvc, metav1.GetOptions{}); err == nil {
+			if p.Spec.StorageClassName != nil {
+				sc = *p.Spec.StorageClassName
+			} else if p.Spec.VolumeName != "" {
+				if pv, err2 := r.Client.CoreV1().PersistentVolumes().Get(ctx, p.Spec.VolumeName, metav1.GetOptions{}); err2 == nil {
+					sc = pv.Spec.StorageClassName
+				}
+			}
+		}
+		// match override exactly on storageClass
+		var fsGroupForPVC *int64
+		var ro bool
+		for _, o := range r.Overrides {
+			if o.Match == sc {
+				if o.FSGroup != nil {
+					fsGroupForPVC = o.FSGroup
+				}
+				if len(o.SupplementalGroups) > 0 {
+					supplemental = mergeSupplemental(supplemental, o.SupplementalGroups)
+				}
+				ro = ro || o.ReadOnly
+				break
+			}
+		}
+		pvcReadOnly[pvc] = ro
+		if fsGroupForPVC != nil {
+			if fsGroupCandidate == nil {
+				fsGroupCandidate = fsGroupForPVC
+			} else if *fsGroupCandidate != *fsGroupForPVC {
+				sameFsGroup = false
+			}
+			// also add as supplemental to cover mixed cases
+			supplemental = mergeSupplemental(supplemental, []int64{*fsGroupForPVC})
+		}
 		volumes = append(volumes, corev1.Volume{
 			Name:         vname,
 			VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvc}},
 		})
-		mounts = append(mounts, corev1.VolumeMount{Name: vname, MountPath: "/data/" + pvc})
+		mounts = append(mounts, corev1.VolumeMount{Name: vname, MountPath: "/data/" + pvc, ReadOnly: pvcReadOnly[pvc]})
 	}
 	// desired spec hash (PVC set only; extend if needed)
 	h := sha1.Sum([]byte(stringsJoin(pvcNames, ",")))
@@ -56,6 +97,11 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 		_ = r.Client.CoreV1().Pods(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	}
 	ann := map[string]string{"pvcviewer.k8s.io/spec-hash": desiredHash}
+	// compute pod SecurityContext
+	var fsGroupToSet *int64
+	if sameFsGroup {
+		fsGroupToSet = fsGroupCandidate
+	}
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: labels, Annotations: ann}, Spec: corev1.PodSpec{
 		Containers: []corev1.Container{{
 			Name:         "agent",
@@ -65,12 +111,12 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 			Ports:        []corev1.ContainerPort{{ContainerPort: 8090}},
 			VolumeMounts: mounts,
 			SecurityContext: &corev1.SecurityContext{
-				RunAsNonRoot: boolPtr(true), RunAsUser: int64Ptr(65532), RunAsGroup: int64Ptr(65532),
+				RunAsNonRoot: boolPtr(true), RunAsUser: pickInt(r.Defaults.RunAsUser, 65532), RunAsGroup: pickInt(r.Defaults.RunAsGroup, 65532),
 				AllowPrivilegeEscalation: boolPtr(false), Capabilities: &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 			},
 		}},
 		Volumes:         volumes,
-		SecurityContext: &corev1.PodSecurityContext{RunAsUser: int64Ptr(65532), RunAsGroup: int64Ptr(65532)},
+		SecurityContext: &corev1.PodSecurityContext{RunAsUser: pickInt(r.Defaults.RunAsUser, 65532), RunAsGroup: pickInt(r.Defaults.RunAsGroup, 65532), FSGroup: fsGroupToSet, SupplementalGroups: supplemental},
 	}}
 	if created, err := r.Client.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{}); err == nil {
 		if r.Logger != nil {

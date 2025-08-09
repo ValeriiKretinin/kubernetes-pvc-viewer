@@ -1,0 +1,33 @@
+name: Trivy CI
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+jobs:
+  trivy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy FS scan (repo)
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL'
+
+      - name: Trivy config scan (Helm chart)
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          scan-type: 'config'
+          scan-ref: 'helm/pvc-viewer'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL'
+
+
