@@ -1,5 +1,8 @@
 # PVC Viewer
 
+![CI](https://github.com/ValeriiKretinin/kubernetes-pvc-viewer/actions/workflows/ci.yml/badge.svg)
+![Trivy Helm](https://github.com/ValeriiKretinin/kubernetes-pvc-viewer/actions/workflows/trivy-helm.yml/badge.svg)
+
 Browse, download, upload (optional), and delete files on Kubernetes PersistentVolumeClaims with a modern, lightweight UI. Hot-reload configuration via ConfigMap, smart include/exclude matchers, and two data-plane modes:
 
 - agent-per-pvc (recommended): one lightweight agent Pod per matched PVC, no restarts on config changes
@@ -123,6 +126,12 @@ On changes to `mountPVCs` backend Pod will restart (checksum/config) to re-mount
 ## Metrics
 
 Exposes `/metrics` (Prometheus). Add a ServiceMonitor if you use Prometheus Operator.
+
+## Security & CI/CD
+
+- Security scanning: Trivy image scan in CI; Trivy IaC scan for Helm chart.
+- CI pipeline: Go build/test, UI build, Helm lint, Docker build/push (GHCR), Trivy scans.
+- Actions: see badges above or visit the Actions tab.
 
 ## Development
 
