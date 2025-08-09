@@ -1,9 +1,6 @@
 apiVersion: v2
 name: pvc-viewer
-description: PVC Viewer backend and ConfigMap; agents are created by the backend
+description: PVC Viewer with UI
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
-
-
-

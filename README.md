@@ -50,13 +50,6 @@ helm upgrade --install pvc-viewer \
   --set image.repository=ghcr.io/valeriikretinin/kubernetes-pvc-viewer \
   --set image.tag=v0.1.0
 
-# Latest dev build from main (if published by CI)
-helm upgrade --install pvc-viewer \
-  oci://ghcr.io/valeriikretinin/charts/pvc-viewer \
-  --version 0.0.0-<shortsha> \
-  -n pvc-viewer --create-namespace \
-  --set image.repository=ghcr.io/valeriikretinin/kubernetes-pvc-viewer \
-  --set image.tag=latest
 ```
 
 Optionally enable Ingress in `values.yaml` (or via `--set`).
