@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/valeriikretinin/kubernetes-pvc-viewer/internal/config"
 	"go.uber.org/zap"
 )
@@ -111,7 +112,7 @@ func (r *Reconciler) ensureAgent(ctx context.Context, t Target) error {
 		return nil
 	}
 	// Resolve security for this storageClass
-	sec := r.resolveSecurityForStorageClass(t.StorageClass)
+	sec := r.resolveSecurityForStorageClass(t.PVCName, t.StorageClass)
 
 	ro := sec.ReadOnly
 	pod := &corev1.Pod{
@@ -171,10 +172,30 @@ func boolString(b bool) string {
 }
 
 // resolveSecurityForStorageClass merges defaults with first matching override
-func (r *Reconciler) resolveSecurityForStorageClass(sc string) config.SecuritySpec {
+func (r *Reconciler) resolveSecurityForStorageClass(pvcName, sc string) config.SecuritySpec {
 	out := r.Defaults
 	for _, o := range r.Overrides {
-		// simple exact match on storageClass; note: glob matching can be added if needed
+		// pvc-specific override takes precedence
+		if o.PvcMatch != "" {
+			if ok, _ := doublestar.Match(o.PvcMatch, pvcName); ok {
+				if o.RunAsUser != nil {
+					out.RunAsUser = o.RunAsUser
+				}
+				if o.RunAsGroup != nil {
+					out.RunAsGroup = o.RunAsGroup
+				}
+				if o.FSGroup != nil {
+					out.FSGroup = o.FSGroup
+				}
+				if len(o.SupplementalGroups) > 0 {
+					out.SupplementalGroups = o.SupplementalGroups
+				}
+				out.ReadOnly = out.ReadOnly || o.ReadOnly
+				break
+			}
+			continue
+		}
+		// simple exact match on storageClass
 		if o.Match == sc {
 			if o.RunAsUser != nil {
 				out.RunAsUser = o.RunAsUser

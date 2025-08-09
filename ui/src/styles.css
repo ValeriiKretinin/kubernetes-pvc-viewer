@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 html, body, #root { height: 100%; }
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif; }
 
 /* Improve dark theme contrast */
 .dark {
@@ -22,9 +23,41 @@ html, body, #root { height: 100%; }
 
 /* Unified button style (Upload here, theme switch) */
 .btn {
-  @apply px-3 py-1 rounded border shadow-sm transition bg-white/80 dark:bg-gray-800/70 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 backdrop-blur;
+  @apply px-3 py-1.5 rounded-md border shadow-sm transition bg-white/80 dark:bg-gray-800/70 border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 backdrop-blur hover:shadow;
 }
 .btn:hover { @apply bg-white dark:bg-gray-800; }
+
+/* Card and panel styles */
+.panel {
+  @apply bg-white dark:bg-gray-900/80 backdrop-blur rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm;
+}
+
+/* Table tweaks */
+table thead th { @apply py-2 font-medium text-gray-600 dark:text-gray-300; }
+table tbody tr { @apply transition-colors; }
+table tbody tr:hover { @apply bg-gray-50 dark:bg-gray-900/70; }
+
+/* Icons baseline size */
+.icon { width: 18px; height: 18px; }
+
+/* Header gradient tuned for light/dark */
+.header-gradient {
+  background-image: linear-gradient(135deg, rgba(99,102,241,0.16) 0%, rgba(59,130,246,0.16) 40%, rgba(16,185,129,0.10) 100%);
+}
+.dark .header-gradient {
+  background-image: linear-gradient(135deg, rgba(99,102,241,0.22) 0%, rgba(59,130,246,0.22) 40%, rgba(16,185,129,0.14) 100%);
+}
+
+/* Muted text helpers (better contrast in dark) */
+.text-muted { @apply text-gray-600 dark:text-gray-300; }
+.text-muted-weak { @apply text-gray-500 dark:text-gray-400; }
+.text-strong { @apply text-gray-900 dark:text-gray-100; }
+
+/* Simple animations */
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes slideInRight { from { transform: translateX(8px); opacity: 0 } to { transform: translateX(0); opacity: 1 } }
+.animate-fade-in { animation: fadeIn .2s ease-out; }
+.animate-slide-in-right { animation: slideInRight .25s ease-out; }
 
 /* Header gradient */
 .header-gradient {

@@ -18,9 +18,9 @@ export function HeaderBar({ namespaces, namespace, onNamespace, pvcs, pvc, onPvc
   const [q, setQ] = useState('')
   useEffect(()=>{ onSearch(q) }, [q])
   return (
-    <div className="header-gradient sticky top-0 z-40 shadow-sm">
+    <div className="header-gradient sticky top-0 z-40">
       <div className="max-w-screen-2xl mx-auto px-4 py-3 flex items-center gap-3">
-        <div className="text-xl font-semibold tracking-tight">PVC Viewer</div>
+        <div className="text-xl font-semibold tracking-tight text-strong">PVC Viewer</div>
         <div className="ml-4 flex items-center gap-2">
           <select className="px-2 py-1 rounded bg-white/70 dark:bg-gray-800/70 border border-gray-300 dark:border-gray-600 backdrop-blur"
                   value={namespace} onChange={e=>onNamespace(e.target.value)}>
@@ -34,7 +34,7 @@ export function HeaderBar({ namespaces, namespace, onNamespace, pvcs, pvc, onPvc
           </select>
         </div>
         <div className="ml-4 flex-1">
-          <input className="w-full px-3 py-2 rounded bg-white/80 dark:bg-gray-800/70 border border-gray-300 dark:border-gray-600 backdrop-blur focus:outline-none"
+          <input className="w-full px-3 py-2 rounded-lg bg-white/80 dark:bg-gray-800/70 border border-gray-300 dark:border-gray-600 backdrop-blur focus:outline-none focus:ring-2 focus:ring-blue-500/40"
                  placeholder="Search files by name…"
                  value={q} onChange={e=>setQ(e.target.value)} />
         </div>

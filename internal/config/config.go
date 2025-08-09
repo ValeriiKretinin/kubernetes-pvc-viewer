@@ -27,7 +27,8 @@ type SecuritySpec struct {
 }
 
 type OverrideSpec struct {
-	Match        string `yaml:"match"`
+	Match        string `yaml:"match"`    // storageClass glob
+	PvcMatch     string `yaml:"pvcMatch"` // optional PVC name glob (takes precedence over Match)
 	SecuritySpec `yaml:",inline"`
 }
 

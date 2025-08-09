@@ -40,11 +40,15 @@ export function TreeView({ namespace, pvc }: Props) {
 
   const render = (node: Node, depth = 0) => (
     <div key={node.path}>
-      <div className="flex items-center gap-1 cursor-pointer hover:underline" style={{ paddingLeft: depth * 12 }}>
-        <button className="text-xs" onClick={() => toggle(node)}>{node.expanded ? '▾' : '▸'}</button>
-        <span onClick={() => navigate(node.path)}>{node.name}</span>
+      <div className="flex items-center gap-1 cursor-pointer group" style={{ paddingLeft: depth * 12 }}>
+        <button className="text-xs text-muted-weak group-hover:text-strong" onClick={() => toggle(node)}>{node.expanded ? '▾' : '▸'}</button>
+        <span className="text-sm text-strong group-hover:underline" onClick={() => navigate(node.path)}>{node.name}</span>
       </div>
-      {node.expanded && node.children.map(child => render(child, depth + 1))}
+      {node.expanded && (
+        <div className="animate-slide-in-right">
+          {node.children.map(child => render(child, depth + 1))}
+        </div>
+      )}
     </div>
   )
 

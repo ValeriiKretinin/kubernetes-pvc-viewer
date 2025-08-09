@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - Agent: uid/gid/mode in directory listings; new endpoint POST /v1/empty to clear directory contents
 - Backend: POST /api/v1/empty-dir -> agent /v1/empty, service-DNS proxying
 - Backend: agent-per-namespace now runs multiple agents per namespace grouped by effective security profile; routing picks the correct Service per PVC
+- Config: add `pvcMatch` (glob) in `securityOverrides` to override per specific PVC; takes precedence over storageClass `match`
 - Discovery: resolve storageClass from PV when missing in PVC; RWX-only
 - Reconciler: GC of stale per-profile ns agents; logging for ensure
 - GC: manual endpoint /api/v1/gc and shutdown GC with reconciliation disabled

@@ -88,9 +88,12 @@ agents:
     supplementalGroups: [65534]
     readOnly: false
   securityOverrides:
-    - match: "cephfs*"
+    - match: "cephfs*"          # by storageClass glob
       fsGroup: 16777216
       supplementalGroups: [16777216]
+    - pvcMatch: "airflow-*"     # per-PVC glob (takes precedence over match)
+      runAsGroup: 50000
+      fsGroup: 50000
     - match: "nfs*"
       fsGroup: 1000
 ```

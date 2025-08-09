@@ -46,6 +46,13 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 		// compute effective security from defaults + first matching override (glob)
 		eff := r.Defaults
 		for _, ov := range r.Overrides {
+			if ov.PvcMatch != "" {
+				if ok, _ := doublestar.Match(ov.PvcMatch, pvc); ok {
+					eff = mergeSecurity(eff, ov.SecuritySpec)
+					break
+				}
+				continue
+			}
 			if ok, _ := doublestar.Match(ov.Match, sc); ok {
 				eff = mergeSecurity(eff, ov.SecuritySpec)
 				break

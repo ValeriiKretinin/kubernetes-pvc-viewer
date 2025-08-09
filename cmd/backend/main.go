@@ -247,8 +247,8 @@ func computeRouting(clientset kubernetes.Interface, cfg *config.Config, ns, pvc,
 				}
 			}
 		}
-		// derive effective security and group key
-		eff := backend.BuildSecuritySpec(cfg, sc)
+		// derive effective security and group key (PVC-specific override has precedence)
+		eff := backend.BuildSecuritySpec(cfg, pvc, sc)
 		key := backend.ProfileKey(eff)
 		return backend.NamespaceAgentGroupName(ns, key), q.Encode()
 	}

@@ -41,9 +41,17 @@ func buildPodSecurityContext(r *Reconciler, t Target) *corev1.PodSecurityContext
 }
 
 // BuildSecuritySpec computes effective security spec for given storageClass using config (no kube client needed)
-func BuildSecuritySpec(cfg *config.Config, storageClass string) config.SecuritySpec {
+func BuildSecuritySpec(cfg *config.Config, pvcName string, storageClass string) config.SecuritySpec {
 	out := cfg.Agents.SecurityDefaults
 	for _, o := range cfg.Agents.SecurityOverrides {
+		// pvcMatch takes precedence if provided
+		if o.PvcMatch != "" {
+			if ok, _ := doublestar.Match(o.PvcMatch, pvcName); ok {
+				out = mergeSecurity(out, o.SecuritySpec)
+				break
+			}
+			continue
+		}
 		if ok, _ := doublestar.Match(o.Match, storageClass); ok {
 			out = mergeSecurity(out, o.SecuritySpec)
 			break
