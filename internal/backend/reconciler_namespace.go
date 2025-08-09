@@ -37,7 +37,7 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 	h := sha1.Sum([]byte(stringsJoin(pvcNames, ",")))
 	desiredHash := hex.EncodeToString(h[:8])
 
-	// Service
+	// Service (with owner label for GC)
 	svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: labels}, Spec: corev1.ServiceSpec{
 		Selector: labels,
 		Ports:    []corev1.ServicePort{{Name: "http", Port: 8090, TargetPort: intstr.FromInt(8090)}},
@@ -72,7 +72,11 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 		Volumes:         volumes,
 		SecurityContext: &corev1.PodSecurityContext{RunAsUser: int64Ptr(65532), RunAsGroup: int64Ptr(65532)},
 	}}
-	_, _ = r.Client.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
+	if created, err := r.Client.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{}); err == nil {
+		if r.Logger != nil {
+			r.Logger.Infow("ns agent created", "namespace", namespace, "name", created.Name, "pvcs", pvcNames)
+		}
+	}
 	return nil
 }
 

@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/valeriikretinin/kubernetes-pvc-viewer/internal/config"
+	"go.uber.org/zap"
 )
 
 type Target struct {
@@ -29,6 +30,7 @@ type Reconciler struct {
 	Defaults   config.SecuritySpec
 	Overrides  []config.OverrideSpec
 	Disabled   atomic.Bool
+	Logger     *zap.SugaredLogger
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, targets []Target) error {
@@ -98,12 +100,20 @@ func (r *Reconciler) ensureAgent(ctx context.Context, t Target) error {
 			}},
 		},
 	}
-	_, _ = r.Client.CoreV1().Services(t.Namespace).Create(ctx, svc, metav1.CreateOptions{})
+	if _, err := r.Client.CoreV1().Services(t.Namespace).Create(ctx, svc, metav1.CreateOptions{}); err == nil {
+		if r.Logger != nil {
+			r.Logger.Infow("agent service ensured", "ns", t.Namespace, "svc", name)
+		}
+	}
 
 	// Ensure Pod
 	if _, err := r.Client.CoreV1().Pods(t.Namespace).Get(ctx, name, metav1.GetOptions{}); err == nil {
 		return nil
 	}
+	// Resolve security for this storageClass
+	sec := r.resolveSecurityForStorageClass(t.StorageClass)
+
+	ro := sec.ReadOnly
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: t.Namespace, Labels: labels},
 		Spec: corev1.PodSpec{
@@ -111,13 +121,13 @@ func (r *Reconciler) ensureAgent(ctx context.Context, t Target) error {
 				Name:         "agent",
 				Image:        r.AgentImage,
 				Command:      []string{"/bin/agent"},
-				Env:          []corev1.EnvVar{{Name: "PVC_VIEWER_DATA_ROOT", Value: "/data"}, {Name: "PVC_VIEWER_READ_ONLY", Value: "false"}},
+				Env:          []corev1.EnvVar{{Name: "PVC_VIEWER_DATA_ROOT", Value: "/data"}, {Name: "PVC_VIEWER_READ_ONLY", Value: boolString(ro)}},
 				Ports:        []corev1.ContainerPort{{ContainerPort: 8090}},
-				VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/data"}},
+				VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/data", ReadOnly: ro}},
 				SecurityContext: &corev1.SecurityContext{
 					RunAsNonRoot:             boolPtr(true),
-					RunAsUser:                int64Ptr(65532),
-					RunAsGroup:               int64Ptr(65532),
+					RunAsUser:                pickInt(sec.RunAsUser, 65532),
+					RunAsGroup:               pickInt(sec.RunAsGroup, 65532),
 					AllowPrivilegeEscalation: boolPtr(false),
 					Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 				},
@@ -126,10 +136,19 @@ func (r *Reconciler) ensureAgent(ctx context.Context, t Target) error {
 				Name:         "data",
 				VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: t.PVCName}},
 			}},
-			SecurityContext: &corev1.PodSecurityContext{RunAsUser: int64Ptr(65532), RunAsGroup: int64Ptr(65532)},
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsUser:          pickInt(sec.RunAsUser, 65532),
+				RunAsGroup:         pickInt(sec.RunAsGroup, 65532),
+				FSGroup:            sec.FSGroup,
+				SupplementalGroups: mergeSupplemental(r.Defaults.SupplementalGroups, sec.SupplementalGroups),
+			},
 		},
 	}
-	_, _ = r.Client.CoreV1().Pods(t.Namespace).Create(ctx, pod, metav1.CreateOptions{})
+	if _, err := r.Client.CoreV1().Pods(t.Namespace).Create(ctx, pod, metav1.CreateOptions{}); err == nil {
+		if r.Logger != nil {
+			r.Logger.Infow("agent pod ensured", "ns", t.Namespace, "pod", name, "pvc", t.PVCName)
+		}
+	}
 	return nil
 }
 
@@ -143,6 +162,66 @@ func AgentName(ns, pvc string) string {
 
 func boolPtr(b bool) *bool    { return &b }
 func int64Ptr(i int64) *int64 { return &i }
+
+func boolString(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
+// resolveSecurityForStorageClass merges defaults with first matching override
+func (r *Reconciler) resolveSecurityForStorageClass(sc string) config.SecuritySpec {
+	out := r.Defaults
+	for _, o := range r.Overrides {
+		// simple exact match on storageClass; note: glob matching can be added if needed
+		if o.Match == sc {
+			if o.RunAsUser != nil {
+				out.RunAsUser = o.RunAsUser
+			}
+			if o.RunAsGroup != nil {
+				out.RunAsGroup = o.RunAsGroup
+			}
+			if o.FSGroup != nil {
+				out.FSGroup = o.FSGroup
+			}
+			if len(o.SupplementalGroups) > 0 {
+				out.SupplementalGroups = o.SupplementalGroups
+			}
+			out.ReadOnly = out.ReadOnly || o.ReadOnly
+			break
+		}
+	}
+	return out
+}
+
+func pickInt(v *int64, def int64) *int64 {
+	if v != nil {
+		return v
+	}
+	return &def
+}
+
+func mergeSupplemental(a, b []int64) []int64 {
+	if len(b) == 0 {
+		return a
+	}
+	m := map[int64]struct{}{}
+	out := make([]int64, 0, len(a)+len(b))
+	for _, x := range a {
+		if _, ok := m[x]; !ok {
+			m[x] = struct{}{}
+			out = append(out, x)
+		}
+	}
+	for _, x := range b {
+		if _, ok := m[x]; !ok {
+			m[x] = struct{}{}
+			out = append(out, x)
+		}
+	}
+	return out
+}
 
 // DiscoverTargets is a placeholder: in real impl we would list PVCs and apply matchers.
 func (r *Reconciler) DiscoverTargets(ctx context.Context) ([]Target, error) {

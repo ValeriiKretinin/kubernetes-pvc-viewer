@@ -5,9 +5,10 @@ type Props = {
   pvcs: string[]
   pvc: string
   onPvc: (p: string)=>void
+  pvcsLoading?: boolean
 }
 
-export function Sidebar({ namespaces, namespace, onNamespace, pvcs, pvc, onPvc }: Props) {
+export function Sidebar({ namespaces, namespace, onNamespace, pvcs, pvc, onPvc, pvcsLoading }: Props) {
   return (
     <div className="w-80 border-r border-gray-200 dark:border-gray-700 p-3 flex flex-col gap-4 bg-white dark:bg-gray-900">
       <div>
@@ -28,6 +29,7 @@ export function Sidebar({ namespaces, namespace, onNamespace, pvcs, pvc, onPvc }
           <select className="w-full pl-7 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded p-2"
                   value={pvc} onChange={e=>onPvc(e.target.value)}>
             <option value="">Select PVC</option>
+            {pvcsLoading && <option value="" disabled>Loading...</option>}
             {pvcs.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>

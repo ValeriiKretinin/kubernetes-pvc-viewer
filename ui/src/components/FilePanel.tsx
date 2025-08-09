@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ContextMenu } from './ContextMenu'
 
-type Entry = { name: string; path: string; isDir: boolean; size: number; mod: string }
+type Entry = { name: string; path: string; isDir: boolean; size: number; mod: string; uid?: number; gid?: number; mode?: number }
 
 type Props = { namespace: string; pvc: string }
 
@@ -52,7 +52,7 @@ export function FilePanel({ namespace, pvc }: Props) {
       <div className="flex-1 overflow-auto">
         <table className="w-full text-sm">
           <thead className="text-left sticky top-0 bg-gray-50 dark:bg-gray-900">
-            <tr><th className="p-2">Name</th><th>Size</th><th>Modified</th><th></th></tr>
+            <tr><th className="p-2">Name</th><th>Size</th><th>Modified</th><th>Owner</th><th>Group</th><th>Mode</th><th></th></tr>
           </thead>
           <tbody>
             {entries.map(e => (
@@ -64,14 +64,15 @@ export function FilePanel({ namespace, pvc }: Props) {
                 </td>
                 <td className="p-2">{e.isDir ? '-' : formatSize(e.size)}</td>
                 <td className="p-2">{new Date(e.mod).toLocaleString()}</td>
+                <td className="p-2">{e.uid ?? '-'}</td>
+                <td className="p-2">{e.gid ?? '-'}</td>
+                <td className="p-2">{formatMode(e.mode)}</td>
                 <td className="p-2 text-right">
-                  {!e.isDir && (
-                    <ContextMenu
-                      onDownload={()=>downloadWithProgress(namespace, pvc, e.path, setProgress, setError)}
-                      onDelete={undefined}
-                      onUpload={undefined}
-                    />
-                  )}
+                  <ContextMenu
+                    onDownload={!e.isDir ? ()=>downloadWithProgress(namespace, pvc, e.path, setProgress, setError) : undefined}
+                    onDelete={()=>handleDelete(namespace, pvc, e.path, !!e.isDir, setError, setPath)}
+                    onUpload={e.isDir ? ()=>handleUpload(namespace, pvc, e.path, setError, ()=>setPath(e.path)) : undefined}
+                  />
                 </td>
               </tr>
             ))}
@@ -134,6 +135,43 @@ function downloadWithProgress(ns:string, pvc:string, filePath:string, setProgres
     setProgress(0)
   }
   xhr.send()
+}
+
+function handleDelete(ns:string, pvc:string, p:string, isDir:boolean, setError:(s:string)=>void, refresh:(p:string)=>void) {
+  const url = `/api/v1/file?ns=${encodeURIComponent(ns)}&pvc=${encodeURIComponent(pvc)}&path=${encodeURIComponent(p)}`
+  fetch(url, { method: 'DELETE' }).then(r => {
+    if (!r.ok) throw new Error(`Delete failed: ${r.status}`)
+    // refresh parent directory
+    const parent = p.split('/').slice(0,-1).join('/') || '/'
+    refresh(parent)
+  }).catch(e=>setError(String(e)))
+}
+
+function handleUpload(ns:string, pvc:string, dir:string, setError:(s:string)=>void, onDone:()=>void) {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.multiple = true
+  input.onchange = async () => {
+    if (!input.files || input.files.length===0) return
+    const form = new FormData()
+    for (const f of Array.from(input.files)) form.append('file', f)
+    const url = `/api/v1/upload?ns=${encodeURIComponent(ns)}&pvc=${encodeURIComponent(pvc)}&path=${encodeURIComponent(dir)}`
+    try {
+      const r = await fetch(url, { method: 'POST', body: form })
+      if (!r.ok) throw new Error(`Upload failed: ${r.status}`)
+      onDone()
+    } catch (e:any) {
+      setError(String(e))
+    }
+  }
+  input.click()
+}
+
+function formatMode(mode?: number) {
+  if (mode==null) return '-'
+  const m = mode & 0o777
+  const to = (n:number)=>[(n&4?'r':'-'),(n&2?'w':'-'),(n&1?'x':'-')].join('')
+  return to((m>>6)&7)+' '+to((m>>3)&7)+' '+to(m&7)
 }
 
 

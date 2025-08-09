@@ -40,7 +40,7 @@ func main() {
 	if err != nil {
 		sugar.Fatalw("kube client", "error", err)
 	}
-	controller := &backend.Controller{Recon: &backend.Reconciler{Client: clientset, AgentImage: getenv("PVC_VIEWER_AGENT_IMAGE", "ghcr.io/example/pvc-viewer-agent:latest"), Defaults: cfgState.Current().Agents.SecurityDefaults, Overrides: cfgState.Current().Agents.SecurityOverrides}, Disc: &backend.Discovery{Client: clientset}, Logger: sugar}
+	controller := &backend.Controller{Recon: &backend.Reconciler{Client: clientset, AgentImage: getenv("PVC_VIEWER_AGENT_IMAGE", "ghcr.io/example/pvc-viewer-agent:latest"), Defaults: cfgState.Current().Agents.SecurityDefaults, Overrides: cfgState.Current().Agents.SecurityOverrides, Logger: sugar}, Disc: &backend.Discovery{Client: clientset}, Logger: sugar}
 	if err := config.WatchFile(ctx, cfgPath, func(c *config.Config) {
 		cfgState.ApplyNewConfig(c)
 		controller.Recon.Defaults = c.Agents.SecurityDefaults
@@ -137,6 +137,19 @@ func main() {
 			rc.URL.RawQuery = newRaw
 			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/upload", w, rc); err != nil {
 				sugar.Warnw("proxy upload failed", "ns", ns, "pvc", pvc, "svc", svc, "error", err)
+				http.Error(w, "agent unavailable", http.StatusBadGateway)
+				return
+			}
+		})
+		api.Post("/empty-dir", func(w http.ResponseWriter, r *http.Request) {
+			ns := r.URL.Query().Get("ns")
+			pvc := r.URL.Query().Get("pvc")
+			sugar.Infow("/empty-dir", "ns", ns, "pvc", pvc, "path", r.URL.Query().Get("path"))
+			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
+			rc := r.Clone(r.Context())
+			rc.URL.RawQuery = newRaw
+			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/empty", w, rc); err != nil {
+				sugar.Warnw("proxy empty-dir failed", "ns", ns, "pvc", pvc, "svc", svc, "error", err)
 				http.Error(w, "agent unavailable", http.StatusBadGateway)
 				return
 			}

@@ -120,10 +120,7 @@ On changes to `mountPVCs` backend Pod will restart (checksum/config) to re-mount
 
 ## Security
 
-- agent Pods: runAsNonRoot, readOnlyRootFilesystem, allowPrivilegeEscalation=false, drop ALL caps; fsGroup/supplementalGroups via overrides
-- path validation in agent: normalized, no `..`, symlink containment inside `/data`
-- NetworkPolicy template to restrict traffic
-- AuthN/Z intentionally disabled by default in this repo; wire OIDC/JWT/Basic later if needed
+See the full security policy and hardening guidance in `SECURITY.md`.
 
 ## Metrics
 
@@ -134,6 +131,14 @@ Exposes `/metrics` (Prometheus). Add a ServiceMonitor if you use Prometheus Oper
 - Security scanning: Trivy image scan in CI; Trivy IaC scan for Helm chart.
 - CI pipeline: Go build/test, UI build, Helm lint, Docker build/push (GHCR), Trivy scans.
 - Actions: see badges above or visit the Actions tab.
+
+## Contributing
+
+Please read `CONTRIBUTING.md`. By participating, you agree to abide by our `CODE_OF_CONDUCT.md`.
+
+## Changelog
+
+See `CHANGELOG.md` for notable changes.
 
 ## Development
 

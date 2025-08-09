@@ -7,6 +7,8 @@ export default function App() {
   const [namespace, setNamespace] = useState<string>('')
   const [pvcs, setPvcs] = useState<string[]>([])
   const [pvc, setPvc] = useState<string>('')
+  const [pvcsCache, setPvcsCache] = useState<Record<string, string[]>>({})
+  const [pvcsLoading, setPvcsLoading] = useState<boolean>(false)
   const [theme, setTheme] = useState<'light'|'dark'>(() => (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
 
   useEffect(() => {
@@ -16,10 +18,22 @@ export default function App() {
   useEffect(() => {
     // reset PVC on namespace change to avoid stale selection/404s
     setPvc('')
-    setPvcs([])
+    // show cached immediately if present
+    if (namespace && pvcsCache[namespace]) {
+      setPvcs(pvcsCache[namespace])
+    } else {
+      setPvcs([])
+    }
     if (!namespace) return
+    setPvcsLoading(true)
     fetch(`/api/v1/pvcs?namespace=${encodeURIComponent(namespace)}`)
-      .then(r => r.json()).then(setPvcs).catch(()=>{})
+      .then(r => r.json())
+      .then(list => {
+        setPvcs(list)
+        setPvcsCache(prev => ({ ...prev, [namespace]: list }))
+      })
+      .catch(()=>{})
+      .finally(() => setPvcsLoading(false))
   }, [namespace])
 
   return (
@@ -30,7 +44,7 @@ export default function App() {
         </button>
       </div>
       <Sidebar namespaces={namespaces} namespace={namespace} onNamespace={setNamespace}
-               pvcs={pvcs} pvc={pvc} onPvc={setPvc} />
+               pvcs={pvcs} pvc={pvc} onPvc={setPvc} pvcsLoading={pvcsLoading} />
       <div className="flex-1 overflow-hidden">
         <FilePanel namespace={namespace} pvc={pvc} />
       </div>

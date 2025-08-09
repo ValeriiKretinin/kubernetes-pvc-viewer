@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"time"
 
+	"syscall"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/valeriikretinin/kubernetes-pvc-viewer/internal/fsutil"
 	"go.uber.org/zap"
@@ -36,6 +38,7 @@ func (s *HTTPServer) routes() {
 	s.Router.Get("/v1/file", s.handleGetFile)
 	s.Router.Delete("/v1/file", s.handleDelete)
 	s.Router.Post("/v1/upload", s.handleUpload)
+	s.Router.Post("/v1/empty", s.handleEmpty)
 }
 
 type TreeEntry struct {
@@ -44,6 +47,9 @@ type TreeEntry struct {
 	IsDir bool      `json:"isDir"`
 	Size  int64     `json:"size"`
 	Mod   time.Time `json:"mod"`
+	UID   uint32    `json:"uid"`
+	GID   uint32    `json:"gid"`
+	Mode  uint32    `json:"mode"`
 }
 
 func (s *HTTPServer) handleTree(w http.ResponseWriter, r *http.Request) {
@@ -99,12 +105,21 @@ func (s *HTTPServer) handleTree(w http.ResponseWriter, r *http.Request) {
 	page := entries[offset:end]
 	out := make([]TreeEntry, 0, len(page))
 	for _, e := range page {
+		uid, gid, mode := uint32(0), uint32(0), uint32(e.Mode().Perm())
+		if st, ok := e.Sys().(*syscall.Stat_t); ok {
+			uid = st.Uid
+			gid = st.Gid
+			mode = uint32(e.Mode().Perm())
+		}
 		out = append(out, TreeEntry{
 			Name:  e.Name(),
 			Path:  filepath.Join(p, e.Name()),
 			IsDir: e.IsDir(),
 			Size:  e.Size(),
 			Mod:   e.ModTime(),
+			UID:   uid,
+			GID:   gid,
+			Mode:  mode,
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -256,6 +271,40 @@ func (s *HTTPServer) handleUpload(w http.ResponseWriter, r *http.Request) {
 		_ = dst.Close()
 	}
 	w.WriteHeader(http.StatusCreated)
+}
+
+func (s *HTTPServer) handleEmpty(w http.ResponseWriter, r *http.Request) {
+	if s.ReadOnly {
+		s.Logger.Warnw("empty in read-only mode")
+		http.Error(w, "read-only", http.StatusForbidden)
+		return
+	}
+	q := r.URL.Query()
+	dir := q.Get("path")
+	fullDir, err := fsutil.JoinSecure(s.DataRoot, dir)
+	if err != nil {
+		s.Logger.Warnw("join secure failed", "dir", dir, "error", err)
+		http.Error(w, "bad path", http.StatusBadRequest)
+		return
+	}
+	fi, err := os.Stat(fullDir)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	if !fi.IsDir() {
+		http.Error(w, "not a directory", http.StatusBadRequest)
+		return
+	}
+	entries, err := os.ReadDir(fullDir)
+	if err != nil {
+		http.Error(w, "read dir", http.StatusInternalServerError)
+		return
+	}
+	for _, e := range entries {
+		_ = os.RemoveAll(filepath.Join(fullDir, e.Name()))
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func parseRange(h string, size int64) (start, end int64, ok bool) {
