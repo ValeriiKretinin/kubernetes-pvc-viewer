@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ContextMenu } from './ContextMenu'
+import { ConfirmDialog } from './ConfirmDialog'
 import { FolderIcon, DocumentIcon, Squares2X2Icon, Bars3BottomLeftIcon, CodeBracketIcon, DocumentTextIcon, PhotoIcon, ArchiveBoxIcon, MusicalNoteIcon, FilmIcon } from '@heroicons/react/24/outline'
 import { PreviewPane } from './PreviewPane'
 
@@ -16,6 +17,8 @@ export function FilePanel({ namespace, pvc, query }: Props) {
   const [error, setError] = useState<string>('')
   const [progress, setProgress] = useState<number>(0)
   const [view, setView] = useState<'table'|'grid'>('table')
+  const [reloadTick, setReloadTick] = useState<number>(0)
+  const [confirm, setConfirm] = useState<{open:boolean; path:string}|>( { open:false, path:'' } as any )
   const limit = 200
 
   useEffect(() => { setPath('/'); setError(''); setEntries([]); setTotal(0); setOffset(0) }, [namespace, pvc])
@@ -33,7 +36,7 @@ export function FilePanel({ namespace, pvc, query }: Props) {
       .then(setEntries)
       .catch(e=>{ if ((e as any).name !== 'AbortError') setError(String(e)) })
     return () => ac.abort()
-  }, [namespace, pvc, path, offset])
+  }, [namespace, pvc, path, offset, reloadTick])
 
   const breadcrumbs = useMemo(() => {
     const segs = path.split('/').filter(Boolean)
@@ -77,7 +80,7 @@ export function FilePanel({ namespace, pvc, query }: Props) {
             {i>0 && <span className="opacity-50">/</span>}<button className="hover:underline" onClick={()=>{setPath(b.path); setOffset(0)}}>{b.name}</button>
           </span>
         ))}
-        <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
           <div className="inline-flex rounded-md border border-gray-200 dark:border-gray-700 overflow-hidden">
             <button className={(view==='table'? 'bg-gray-100 dark:bg-gray-800 ': 'bg-transparent ') + 'px-2 py-1.5 text-xs flex items-center gap-1'} onClick={()=>setView('table')}>
               <Bars3BottomLeftIcon className="w-4 h-4" /> Table
@@ -86,8 +89,8 @@ export function FilePanel({ namespace, pvc, query }: Props) {
               <Squares2X2Icon className="w-4 h-4" /> Grid
             </button>
           </div>
-          <button className="btn" onClick={()=>handleUpload(namespace, pvc, path, setError, ()=>setPath(path))}>Upload here</button>
-          <button className="btn" onClick={()=>confirmEmptyDir(namespace, pvc, path, setError, ()=>setPath(path))}>Empty dir</button>
+          <button className="btn" onClick={()=>handleUpload(namespace, pvc, path, setError, ()=>setReloadTick(t=>t+1))}>Upload here</button>
+          <button className="btn" onClick={()=>setConfirm({ open:true, path })}>Empty dir</button>
         </div>
       </div>
       <div className="flex-1 overflow-auto">
@@ -115,8 +118,8 @@ export function FilePanel({ namespace, pvc, query }: Props) {
                   <td className="p-2 text-right">
                     <ContextMenu
                       onDownload={!e.isDir ? ()=>downloadWithProgress(namespace, pvc, e.path, setProgress, setError) : undefined}
-                      onDelete={()=>handleDelete(namespace, pvc, e.path, !!e.isDir, setError, ()=>setPath(path))}
-                      onUpload={e.isDir ? ()=>handleUpload(namespace, pvc, e.path, setError, ()=>setPath(e.path)) : undefined}
+                      onDelete={()=>handleDelete(namespace, pvc, e.path, !!e.isDir, setError, ()=>setReloadTick(t=>t+1))}
+                      onUpload={e.isDir ? ()=>handleUpload(namespace, pvc, e.path, setError, ()=>setReloadTick(t=>t+1)) : undefined}
                       onInfo={!e.isDir ? ()=>setPreview(e) : undefined}
                     />
                   </td>
@@ -145,8 +148,8 @@ export function FilePanel({ namespace, pvc, query }: Props) {
                   <div>
                     <ContextMenu
                       onDownload={!e.isDir ? ()=>downloadWithProgress(namespace, pvc, e.path, setProgress, setError) : undefined}
-                      onDelete={()=>handleDelete(namespace, pvc, e.path, !!e.isDir, setError, ()=>setPath(path))}
-                      onUpload={e.isDir ? ()=>handleUpload(namespace, pvc, e.path, setError, ()=>setPath(e.path)) : undefined}
+                      onDelete={()=>handleDelete(namespace, pvc, e.path, !!e.isDir, setError, ()=>setReloadTick(t=>t+1))}
+                      onUpload={e.isDir ? ()=>handleUpload(namespace, pvc, e.path, setError, ()=>setReloadTick(t=>t+1)) : undefined}
                       onInfo={!e.isDir ? ()=>setPreview(e) : undefined}
                     />
                   </div>
@@ -156,6 +159,15 @@ export function FilePanel({ namespace, pvc, query }: Props) {
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={confirm.open}
+        title="Empty directory"
+        description={`Delete ALL files inside ${path === '/' ? `/${pvc}/` : path}? This cannot be undone.`}
+        cancelText="Cancel"
+        confirmText="Delete all"
+        onCancel={()=>setConfirm({ open:false, path:'' })}
+        onConfirm={()=>{ setConfirm({ open:false, path:'' }); handleEmptyDir(namespace, pvc, path, setError, ()=>setReloadTick(t=>t+1)) }}
+      />
       {preview && (
         <PreviewPane entry={preview} namespace={namespace} pvc={pvc} onClose={()=>setPreview(null)} />
       )}
