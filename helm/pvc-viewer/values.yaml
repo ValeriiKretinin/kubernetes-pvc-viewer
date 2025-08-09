@@ -22,7 +22,7 @@ config:
       include: ["*"]
       exclude: []
   mode:
-    dataPlane: agent-per-pvc
+    dataPlane: agent-per-namespace
   allowRWO: false
   # When dataPlane: mount-in-backend, list PVCs to mount into the backend Pod (same namespace as release)
   mountPVCs: []

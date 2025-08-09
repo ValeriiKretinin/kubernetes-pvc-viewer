@@ -1,7 +1,7 @@
 # PVC Viewer
 
-![Build App](https://github.com/ValeriiKretinin/kubernetes-pvc-viewer/actions/workflows/app.yml/badge.svg)
-![Helm CI](https://github.com/ValeriiKretinin/kubernetes-pvc-viewer/actions/workflows/helm.yml/badge.svg)
+![App CI + Trivy](https://github.com/ValeriiKretinin/kubernetes-pvc-viewer/actions/workflows/app.yml/badge.svg)
+![Helm CI + Trivy](https://github.com/ValeriiKretinin/kubernetes-pvc-viewer/actions/workflows/helm.yml/badge.svg)
 
 Browse, download, upload (optional), and delete files on Kubernetes PersistentVolumeClaims with a modern, lightweight UI. Hot-reload configuration via ConfigMap, smart include/exclude matchers, and two data-plane modes:
 
@@ -14,7 +14,7 @@ The single container image embeds the React UI, backend API gateway/orchestrator
 
 - Hot-reload ConfigMap: update watched namespaces/PVCs/storageClasses without restarts (agent-per-pvc)
 - Glob matchers (doublestar): include/exclude for namespaces, PVCs, storageClasses
-- Agent per PVC: POSIX FS access; list/tree (pagination), range download with ETag, safe delete, upload (multipart), path traversal protection
+- Agent (per-namespace or per-PVC): POSIX FS access; list/tree (pagination), range download with ETag, safe delete, upload (multipart), path traversal protection
 - Security per storageClass: fsGroup/supplementalGroups overrides, readOnly mode
 - Simple UI (React + Vite + Tailwind): sidebar (namespaces/PVCs), breadcrumbs, table/grid, preview skeleton, context menu, progress bar, error toasts
 - Prometheus metrics endpoint (/metrics)
@@ -34,7 +34,8 @@ Web UI (static)  <—HTTPS—>  Backend (Go)
 
 ## Modes
 
-- agent-per-pvc (default): backend manages agent Pods per matched PVC
+- agent-per-namespace (default): one agent per namespace, mounts all matched PVCs at `/data/<pvc>`
+- agent-per-pvc: backend manages one lightweight agent per matched PVC (полный hot-reload без рестартов)
 - mount-in-backend: backend Pod mounts multiple PVCs (defined in values), requires restart on changes
 
 ## Installation (OCI Helm chart)
@@ -56,6 +57,8 @@ Optionally enable Ingress in `values.yaml` (or via `--set`).
 
 Note:
 - The container image `ghcr.io/valeriikretinin/kubernetes-pvc-viewer` and chart `ghcr.io/valeriikretinin/charts/pvc-viewer` are published as Public packages. If you fork, make sure to set your GHCR packages visibility to Public to allow anonymous pulls.
+
+See also the chart sources and detailed values in `helm/pvc-viewer/`.
 
 ## Configuration (ConfigMap)
 
