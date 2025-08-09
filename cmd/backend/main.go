@@ -19,6 +19,8 @@ import (
 	"github.com/valeriikretinin/kubernetes-pvc-viewer/internal/backend"
 	"github.com/valeriikretinin/kubernetes-pvc-viewer/internal/config"
 	"github.com/valeriikretinin/kubernetes-pvc-viewer/internal/kube"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 //go:embed static/*
@@ -93,7 +95,7 @@ func main() {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
 			sugar.Infow("/tree", "ns", ns, "pvc", pvc, "rawPath", r.URL.Query().Get("path"))
-			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
+			svc, newRaw := computeRouting(clientset, cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
 			rc := r.Clone(r.Context())
 			rc.URL.RawQuery = newRaw
 			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/tree", w, rc); err != nil {
@@ -106,7 +108,7 @@ func main() {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
 			sugar.Infow("/download", "ns", ns, "pvc", pvc, "path", r.URL.Query().Get("path"))
-			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
+			svc, newRaw := computeRouting(clientset, cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
 			rc := r.Clone(r.Context())
 			rc.URL.RawQuery = newRaw
 			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/file", w, rc); err != nil {
@@ -119,7 +121,7 @@ func main() {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
 			sugar.Infow("/file DELETE", "ns", ns, "pvc", pvc, "path", r.URL.Query().Get("path"))
-			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
+			svc, newRaw := computeRouting(clientset, cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
 			rc := r.Clone(r.Context())
 			rc.URL.RawQuery = newRaw
 			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/file", w, rc); err != nil {
@@ -132,7 +134,7 @@ func main() {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
 			sugar.Infow("/upload", "ns", ns, "pvc", pvc, "path", r.URL.Query().Get("path"))
-			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
+			svc, newRaw := computeRouting(clientset, cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
 			rc := r.Clone(r.Context())
 			rc.URL.RawQuery = newRaw
 			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/upload", w, rc); err != nil {
@@ -145,7 +147,7 @@ func main() {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
 			sugar.Infow("/empty-dir", "ns", ns, "pvc", pvc, "path", r.URL.Query().Get("path"))
-			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
+			svc, newRaw := computeRouting(clientset, cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
 			rc := r.Clone(r.Context())
 			rc.URL.RawQuery = newRaw
 			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/empty", w, rc); err != nil {
@@ -213,7 +215,7 @@ func backendServiceName(ns, pvc string) string {
 // agent name generation is delegated to internal/backend.AgentName
 
 // computeRouting picks target Service and rewrites path for per-namespace agents
-func computeRouting(cfg *config.Config, ns, pvc, path, rawQuery string) (svcName string, newRaw string) {
+func computeRouting(clientset kubernetes.Interface, cfg *config.Config, ns, pvc, path, rawQuery string) (svcName string, newRaw string) {
 	if cfg != nil && cfg.Mode.DataPlane == "agent-per-namespace" {
 		// namespace agent service; ensure path is under /data/<pvc>
 		q, _ := url.ParseQuery(rawQuery)
@@ -233,7 +235,22 @@ func computeRouting(cfg *config.Config, ns, pvc, path, rawQuery string) (svcName
 		} else {
 			q.Set("path", prefix+decoded)
 		}
-		return backend.NamespaceAgentName(ns), q.Encode()
+		// choose service per security profile group
+		// resolve PVC storage class
+		sc := ""
+		if p, err := clientset.CoreV1().PersistentVolumeClaims(ns).Get(context.Background(), pvc, metav1.GetOptions{}); err == nil {
+			if p.Spec.StorageClassName != nil {
+				sc = *p.Spec.StorageClassName
+			} else if p.Spec.VolumeName != "" {
+				if pv, err2 := clientset.CoreV1().PersistentVolumes().Get(context.Background(), p.Spec.VolumeName, metav1.GetOptions{}); err2 == nil {
+					sc = pv.Spec.StorageClassName
+				}
+			}
+		}
+		// derive effective security and group key
+		eff := backend.BuildSecuritySpec(cfg, sc)
+		key := backend.ProfileKey(eff)
+		return backend.NamespaceAgentGroupName(ns, key), q.Encode()
 	}
 	return backend.AgentName(ns, pvc), rawQuery
 }

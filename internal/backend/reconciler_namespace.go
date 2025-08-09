@@ -9,30 +9,30 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"github.com/bmatcuk/doublestar/v4"
+	"github.com/valeriikretinin/kubernetes-pvc-viewer/internal/config"
 )
 
-// EnsureNamespaceAgent creates/updates a single agent Pod per namespace with multiple PVC mounts
+// EnsureNamespaceAgent groups PVCs by effective security profile and ensures one agent Pod/Service per group.
 func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string, pvcNames []string) error {
 	if len(pvcNames) == 0 {
 		return nil
 	}
-	name := NamespaceAgentName(namespace)
-	labels := map[string]string{
-		"app":                 "pvc-viewer-agent-ns",
-		"pvcviewer.k8s.io/ns": namespace,
+
+	// Best-effort cleanup of legacy single-agent resources
+	legacy := NamespaceAgentName(namespace)
+	_ = r.Client.CoreV1().Pods(namespace).Delete(ctx, legacy, metav1.DeleteOptions{})
+	_ = r.Client.CoreV1().Services(namespace).Delete(ctx, legacy, metav1.DeleteOptions{})
+
+	type group struct {
+		pvcs []string
+		sec  config.SecuritySpec
 	}
-	// Build volumes and mounts; collect security requirements from overrides by storageClass
-	volumes := make([]corev1.Volume, 0, len(pvcNames))
-	mounts := make([]corev1.VolumeMount, 0, len(pvcNames))
-	sort.Strings(pvcNames)
-	// gather override groups, and per-PVC readOnly
-	supplemental := append([]int64{}, r.Defaults.SupplementalGroups...)
-	var fsGroupCandidate *int64 = r.Defaults.FSGroup
-	sameFsGroup := true
-	pvcReadOnly := map[string]bool{}
+	groups := map[string]*group{}
+
+	// Build groups by security profile
 	for _, pvc := range pvcNames {
-		vname := "v-" + pvc
-		// detect storageClass
 		sc := ""
 		if p, err := r.Client.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, pvc, metav1.GetOptions{}); err == nil {
 			if p.Spec.StorageClassName != nil {
@@ -43,84 +43,108 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 				}
 			}
 		}
-		// match override exactly on storageClass
-		var fsGroupForPVC *int64
-		var ro bool
-		for _, o := range r.Overrides {
-			if o.Match == sc {
-				if o.FSGroup != nil {
-					fsGroupForPVC = o.FSGroup
-				}
-				if len(o.SupplementalGroups) > 0 {
-					supplemental = mergeSupplemental(supplemental, o.SupplementalGroups)
-				}
-				ro = ro || o.ReadOnly
+		// compute effective security from defaults + first matching override (glob)
+		eff := r.Defaults
+		for _, ov := range r.Overrides {
+			if ok, _ := doublestar.Match(ov.Match, sc); ok {
+				eff = mergeSecurity(eff, ov.SecuritySpec)
 				break
 			}
 		}
-		pvcReadOnly[pvc] = ro
-		if fsGroupForPVC != nil {
-			if fsGroupCandidate == nil {
-				fsGroupCandidate = fsGroupForPVC
-			} else if *fsGroupCandidate != *fsGroupForPVC {
-				sameFsGroup = false
+		key := ProfileKey(eff)
+		if _, ok := groups[key]; !ok {
+			groups[key] = &group{pvcs: []string{}, sec: eff}
+		}
+		groups[key].pvcs = append(groups[key].pvcs, pvc)
+	}
+
+	desired := map[string]struct{}{}
+	// Ensure each group
+	for key, g := range groups {
+		sort.Strings(g.pvcs)
+		name := NamespaceAgentGroupName(namespace, key)
+		desired[name] = struct{}{}
+
+		labels := map[string]string{
+			"app":                 "pvc-viewer-agent-ns",
+			"pvcviewer.k8s.io/ns": namespace,
+			"pvcviewer.k8s.io/gr": key,
+		}
+
+		volumes := make([]corev1.Volume, 0, len(g.pvcs))
+		mounts := make([]corev1.VolumeMount, 0, len(g.pvcs))
+		for _, pvc := range g.pvcs {
+			vname := "v-" + pvc
+			volumes = append(volumes, corev1.Volume{
+				Name:         vname,
+				VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvc}},
+			})
+			mounts = append(mounts, corev1.VolumeMount{Name: vname, MountPath: "/data/" + pvc, ReadOnly: g.sec.ReadOnly})
+		}
+
+		// Spec hash to detect PVC set changes
+		h := sha1.Sum([]byte(stringsJoin(g.pvcs, ",")))
+		desiredHash := hex.EncodeToString(h[:8])
+
+		// Service
+		svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: labels}, Spec: corev1.ServiceSpec{
+			Selector: labels,
+			Ports:    []corev1.ServicePort{{Name: "http", Port: 8090, TargetPort: intstr.FromInt(8090)}},
+		}}
+		if _, err := r.Client.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{}); err != nil {
+			_, _ = r.Client.CoreV1().Services(namespace).Create(ctx, svc, metav1.CreateOptions{})
+		}
+
+		// Pod
+		recreate := true
+		if existing, err := r.Client.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{}); err == nil {
+			if existing.Annotations != nil && existing.Annotations["pvcviewer.k8s.io/spec-hash"] == desiredHash {
+				recreate = false
+			} else {
+				_ = r.Client.CoreV1().Pods(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 			}
-			// also add as supplemental to cover mixed cases
-			supplemental = mergeSupplemental(supplemental, []int64{*fsGroupForPVC})
 		}
-		volumes = append(volumes, corev1.Volume{
-			Name:         vname,
-			VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvc}},
-		})
-		mounts = append(mounts, corev1.VolumeMount{Name: vname, MountPath: "/data/" + pvc, ReadOnly: pvcReadOnly[pvc]})
-	}
-	// desired spec hash (PVC set only; extend if needed)
-	h := sha1.Sum([]byte(stringsJoin(pvcNames, ",")))
-	desiredHash := hex.EncodeToString(h[:8])
-
-	// Service (with owner label for GC)
-	svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: labels}, Spec: corev1.ServiceSpec{
-		Selector: labels,
-		Ports:    []corev1.ServicePort{{Name: "http", Port: 8090, TargetPort: intstr.FromInt(8090)}},
-	}}
-	if _, err := r.Client.CoreV1().Services(namespace).Get(ctx, name, metav1.GetOptions{}); err == nil {
-		_ = r.Client.CoreV1().Services(namespace).Delete(ctx, name, metav1.DeleteOptions{})
-	}
-	_, _ = r.Client.CoreV1().Services(namespace).Create(ctx, svc, metav1.CreateOptions{})
-
-	// Pod (replace if absent)
-	if existing, err := r.Client.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{}); err == nil {
-		if existing.Annotations != nil && existing.Annotations["pvcviewer.k8s.io/spec-hash"] == desiredHash {
-			return nil
+		if recreate {
+			ann := map[string]string{"pvcviewer.k8s.io/spec-hash": desiredHash}
+			sec := g.sec
+			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: labels, Annotations: ann}, Spec: corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name:         "agent",
+					Image:        r.AgentImage,
+					Command:      []string{"/bin/agent"},
+					Env:          []corev1.EnvVar{{Name: "PVC_VIEWER_DATA_ROOT", Value: "/data"}, {Name: "PVC_VIEWER_READ_ONLY", Value: boolString(sec.ReadOnly)}},
+					Ports:        []corev1.ContainerPort{{ContainerPort: 8090}},
+					VolumeMounts: mounts,
+					SecurityContext: &corev1.SecurityContext{
+						RunAsNonRoot:             boolPtr(true),
+						RunAsUser:                pickInt(sec.RunAsUser, 65532),
+						RunAsGroup:               pickInt(sec.RunAsGroup, 65532),
+						AllowPrivilegeEscalation: boolPtr(false),
+						Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+					},
+				}},
+				Volumes: volumes,
+				SecurityContext: &corev1.PodSecurityContext{
+					RunAsUser:          pickInt(sec.RunAsUser, 65532),
+					RunAsGroup:         pickInt(sec.RunAsGroup, 65532),
+					FSGroup:            sec.FSGroup,
+					SupplementalGroups: mergeSupplemental(r.Defaults.SupplementalGroups, sec.SupplementalGroups),
+				},
+			}}
+			if created, err := r.Client.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{}); err == nil {
+				if r.Logger != nil {
+					r.Logger.Infow("ns agent group ensured", "namespace", namespace, "name", created.Name, "pvcs", g.pvcs)
+				}
+			}
 		}
-		// spec changed -> recreate
-		_ = r.Client.CoreV1().Pods(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	}
-	ann := map[string]string{"pvcviewer.k8s.io/spec-hash": desiredHash}
-	// compute pod SecurityContext
-	var fsGroupToSet *int64
-	if sameFsGroup {
-		fsGroupToSet = fsGroupCandidate
-	}
-	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: labels, Annotations: ann}, Spec: corev1.PodSpec{
-		Containers: []corev1.Container{{
-			Name:         "agent",
-			Image:        r.AgentImage,
-			Command:      []string{"/bin/agent"},
-			Env:          []corev1.EnvVar{{Name: "PVC_VIEWER_DATA_ROOT", Value: "/data"}},
-			Ports:        []corev1.ContainerPort{{ContainerPort: 8090}},
-			VolumeMounts: mounts,
-			SecurityContext: &corev1.SecurityContext{
-				RunAsNonRoot: boolPtr(true), RunAsUser: pickInt(r.Defaults.RunAsUser, 65532), RunAsGroup: pickInt(r.Defaults.RunAsGroup, 65532),
-				AllowPrivilegeEscalation: boolPtr(false), Capabilities: &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
-			},
-		}},
-		Volumes:         volumes,
-		SecurityContext: &corev1.PodSecurityContext{RunAsUser: pickInt(r.Defaults.RunAsUser, 65532), RunAsGroup: pickInt(r.Defaults.RunAsGroup, 65532), FSGroup: fsGroupToSet, SupplementalGroups: supplemental},
-	}}
-	if created, err := r.Client.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{}); err == nil {
-		if r.Logger != nil {
-			r.Logger.Infow("ns agent created", "namespace", namespace, "name", created.Name, "pvcs", pvcNames)
+
+	// GC pods/services not in desired
+	podList, _ := r.Client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=pvc-viewer-agent-ns"})
+	for _, p := range podList.Items {
+		if _, ok := desired[p.Name]; !ok {
+			_ = r.Client.CoreV1().Pods(namespace).Delete(ctx, p.Name, metav1.DeleteOptions{})
+			_ = r.Client.CoreV1().Services(namespace).Delete(ctx, p.Name, metav1.DeleteOptions{})
 		}
 	}
 	return nil
