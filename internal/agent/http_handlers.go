@@ -13,16 +13,20 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/valeriikretinin/kubernetes-pvc-viewer/internal/fsutil"
+	"go.uber.org/zap"
 )
 
 type HTTPServer struct {
 	Router   *chi.Mux
 	DataRoot string
 	ReadOnly bool
+	Logger   *zap.SugaredLogger
 }
 
 func NewHTTPServer(dataRoot string, readOnly bool) *HTTPServer {
-	s := &HTTPServer{Router: chi.NewRouter(), DataRoot: dataRoot, ReadOnly: readOnly}
+	logger, _ := zap.NewProduction()
+	sugar := logger.Sugar()
+	s := &HTTPServer{Router: chi.NewRouter(), DataRoot: dataRoot, ReadOnly: readOnly, Logger: sugar}
 	s.routes()
 	return s
 }
@@ -50,14 +54,17 @@ func (s *HTTPServer) handleTree(w http.ResponseWriter, r *http.Request) {
 		limit = 200
 	}
 	offset := intFromQuery(q.Get("offset"), 0)
+	s.Logger.Infow("tree", "path", p, "limit", limit, "offset", offset)
 	full, err := fsutil.JoinSecure(s.DataRoot, p)
 	if err != nil {
+		s.Logger.Warnw("join secure failed", "path", p, "error", err)
 		http.Error(w, "bad path", http.StatusBadRequest)
 		return
 	}
 
 	f, err := os.Open(full)
 	if err != nil {
+		s.Logger.Warnw("open failed", "full", full, "error", err)
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
@@ -65,16 +72,19 @@ func (s *HTTPServer) handleTree(w http.ResponseWriter, r *http.Request) {
 
 	fi, err := f.Stat()
 	if err != nil {
+		s.Logger.Warnw("stat failed", "full", full, "error", err)
 		http.Error(w, "stat error", http.StatusInternalServerError)
 		return
 	}
 	if !fi.IsDir() {
+		s.Logger.Warnw("not a directory", "full", full)
 		http.Error(w, "not a directory", http.StatusBadRequest)
 		return
 	}
 
 	entries, err := f.Readdir(0)
 	if err != nil {
+		s.Logger.Warnw("readdir failed", "full", full, "error", err)
 		http.Error(w, "read dir error", http.StatusInternalServerError)
 		return
 	}
@@ -107,22 +117,26 @@ func (s *HTTPServer) handleGetFile(w http.ResponseWriter, r *http.Request) {
 	p := q.Get("path")
 	full, err := fsutil.JoinSecure(s.DataRoot, p)
 	if err != nil {
+		s.Logger.Warnw("join secure failed", "path", p, "error", err)
 		http.Error(w, "bad path", http.StatusBadRequest)
 		return
 	}
 
 	f, err := os.Open(full)
 	if err != nil {
+		s.Logger.Warnw("open failed", "full", full, "error", err)
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
 	defer f.Close()
 	fi, err := f.Stat()
 	if err != nil {
+		s.Logger.Warnw("stat failed", "full", full, "error", err)
 		http.Error(w, "stat error", http.StatusInternalServerError)
 		return
 	}
 	if fi.IsDir() {
+		s.Logger.Warnw("is a directory", "full", full)
 		http.Error(w, "is a directory", http.StatusBadRequest)
 		return
 	}
@@ -143,10 +157,12 @@ func (s *HTTPServer) handleGetFile(w http.ResponseWriter, r *http.Request) {
 	if rng := r.Header.Get("Range"); rng != "" {
 		start, end, ok := parseRange(rng, fi.Size())
 		if !ok {
+			s.Logger.Warnw("invalid range", "range", rng)
 			http.Error(w, "invalid range", http.StatusRequestedRangeNotSatisfiable)
 			return
 		}
 		if _, err := f.Seek(start, io.SeekStart); err != nil {
+			s.Logger.Warnw("seek failed", "error", err)
 			http.Error(w, "seek", http.StatusInternalServerError)
 			return
 		}
@@ -162,6 +178,7 @@ func (s *HTTPServer) handleGetFile(w http.ResponseWriter, r *http.Request) {
 
 func (s *HTTPServer) handleDelete(w http.ResponseWriter, r *http.Request) {
 	if s.ReadOnly {
+		s.Logger.Warnw("delete in read-only mode")
 		http.Error(w, "read-only", http.StatusForbidden)
 		return
 	}
@@ -169,10 +186,12 @@ func (s *HTTPServer) handleDelete(w http.ResponseWriter, r *http.Request) {
 	p := q.Get("path")
 	full, err := fsutil.JoinSecure(s.DataRoot, p)
 	if err != nil {
+		s.Logger.Warnw("join secure failed", "path", p, "error", err)
 		http.Error(w, "bad path", http.StatusBadRequest)
 		return
 	}
 	if err := os.RemoveAll(full); err != nil {
+		s.Logger.Warnw("delete failed", "full", full, "error", err)
 		http.Error(w, "delete failed", http.StatusInternalServerError)
 		return
 	}
@@ -181,10 +200,12 @@ func (s *HTTPServer) handleDelete(w http.ResponseWriter, r *http.Request) {
 
 func (s *HTTPServer) handleUpload(w http.ResponseWriter, r *http.Request) {
 	if s.ReadOnly {
+		s.Logger.Warnw("upload in read-only mode")
 		http.Error(w, "read-only", http.StatusForbidden)
 		return
 	}
 	if err := r.ParseMultipartForm(32 << 20); err != nil { // 32 MiB
+		s.Logger.Warnw("parse form failed", "error", err)
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
 	}
@@ -192,10 +213,12 @@ func (s *HTTPServer) handleUpload(w http.ResponseWriter, r *http.Request) {
 	dir := q.Get("path")
 	fullDir, err := fsutil.JoinSecure(s.DataRoot, dir)
 	if err != nil {
+		s.Logger.Warnw("join secure failed", "dir", dir, "error", err)
 		http.Error(w, "bad path", http.StatusBadRequest)
 		return
 	}
 	if err := os.MkdirAll(fullDir, 0o755); err != nil {
+		s.Logger.Warnw("mkdir failed", "dir", fullDir, "error", err)
 		http.Error(w, "mkdir", http.StatusInternalServerError)
 		return
 	}
@@ -207,6 +230,7 @@ func (s *HTTPServer) handleUpload(w http.ResponseWriter, r *http.Request) {
 	for _, fh := range files {
 		src, err := fh.Open()
 		if err != nil {
+			s.Logger.Warnw("open form file failed", "file", fh.Filename, "error", err)
 			http.Error(w, "open", http.StatusBadRequest)
 			return
 		}
@@ -219,11 +243,13 @@ func (s *HTTPServer) handleUpload(w http.ResponseWriter, r *http.Request) {
 		}
 		dst, err := os.OpenFile(dstPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 		if err != nil {
+			s.Logger.Warnw("open dst failed", "dst", dstPath, "error", err)
 			http.Error(w, "write", http.StatusInternalServerError)
 			return
 		}
 		if _, err := io.Copy(dst, src); err != nil {
 			_ = dst.Close()
+			s.Logger.Warnw("copy failed", "dst", dstPath, "error", err)
 			http.Error(w, "copy", http.StatusInternalServerError)
 			return
 		}

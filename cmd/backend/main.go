@@ -60,6 +60,7 @@ func main() {
 
 	// Health endpoints
 	r.Get("/api/v1/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		sugar.Infow("healthz")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
@@ -79,10 +80,12 @@ func main() {
 		api.Get("/tree", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
+			sugar.Infow("/tree", "ns", ns, "pvc", pvc, "rawPath", r.URL.Query().Get("path"))
 			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
 			rc := r.Clone(r.Context())
 			rc.URL.RawQuery = newRaw
 			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/tree", w, rc); err != nil {
+				sugar.Warnw("proxy tree failed", "ns", ns, "pvc", pvc, "svc", svc, "error", err)
 				http.Error(w, "agent unavailable", http.StatusBadGateway)
 				return
 			}
@@ -90,10 +93,12 @@ func main() {
 		api.Get("/download", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
+			sugar.Infow("/download", "ns", ns, "pvc", pvc, "path", r.URL.Query().Get("path"))
 			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
 			rc := r.Clone(r.Context())
 			rc.URL.RawQuery = newRaw
 			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/file", w, rc); err != nil {
+				sugar.Warnw("proxy download failed", "ns", ns, "pvc", pvc, "svc", svc, "error", err)
 				http.Error(w, "agent unavailable", http.StatusBadGateway)
 				return
 			}
@@ -101,10 +106,12 @@ func main() {
 		api.Delete("/file", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
+			sugar.Infow("/file DELETE", "ns", ns, "pvc", pvc, "path", r.URL.Query().Get("path"))
 			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
 			rc := r.Clone(r.Context())
 			rc.URL.RawQuery = newRaw
 			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/file", w, rc); err != nil {
+				sugar.Warnw("proxy delete failed", "ns", ns, "pvc", pvc, "svc", svc, "error", err)
 				http.Error(w, "agent unavailable", http.StatusBadGateway)
 				return
 			}
@@ -112,10 +119,12 @@ func main() {
 		api.Post("/upload", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
+			sugar.Infow("/upload", "ns", ns, "pvc", pvc, "path", r.URL.Query().Get("path"))
 			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
 			rc := r.Clone(r.Context())
 			rc.URL.RawQuery = newRaw
 			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/upload", w, rc); err != nil {
+				sugar.Warnw("proxy upload failed", "ns", ns, "pvc", pvc, "svc", svc, "error", err)
 				http.Error(w, "agent unavailable", http.StatusBadGateway)
 				return
 			}

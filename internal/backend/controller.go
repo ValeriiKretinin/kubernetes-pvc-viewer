@@ -49,6 +49,9 @@ func (c *Controller) reconcilePerNamespace(ctx context.Context, cfg *config.Conf
 	for _, t := range targets {
 		nsToPvcs[t.Namespace] = append(nsToPvcs[t.Namespace], t.PVCName)
 	}
+	for ns, pvcs := range nsToPvcs {
+		c.Logger.Infow("namespace agent desired", "namespace", ns, "pvcs", pvcs)
+	}
 	// GC all per-PVC agents when switching to per-namespace mode
 	if err := c.Recon.GCPerPVCAll(ctx); err != nil {
 		c.Logger.Warnw("gc per-pvc agents failed", "error", err)

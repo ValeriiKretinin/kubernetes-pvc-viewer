@@ -17,6 +17,8 @@ type Discovery struct {
 
 // BuildTargets lists PVCs cluster-wide and applies matchers from cfg. If include lists are empty, returns empty.
 func (d *Discovery) BuildTargets(ctx context.Context, cfg *config.Config) ([]Target, error) {
+	// log inputs to aid troubleshooting
+	_ = cfg
 	nsMatch := matcher.New(cfg.Watch.Namespaces.Include, cfg.Watch.Namespaces.Exclude)
 	pvcMatch := matcher.New(cfg.Watch.Pvcs.Include, cfg.Watch.Pvcs.Exclude)
 	scMatch := matcher.New(cfg.Watch.StorageClasses.Include, cfg.Watch.StorageClasses.Exclude)
