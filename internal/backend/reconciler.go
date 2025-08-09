@@ -223,6 +223,13 @@ func mergeSupplemental(a, b []int64) []int64 {
 	return out
 }
 
+func valueOrNil(p *int64) interface{} {
+	if p == nil {
+		return nil
+	}
+	return *p
+}
+
 // DiscoverTargets is a placeholder: in real impl we would list PVCs and apply matchers.
 func (r *Reconciler) DiscoverTargets(ctx context.Context) ([]Target, error) {
 	// TODO: implement

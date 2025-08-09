@@ -20,7 +20,7 @@ helm upgrade --install pvc-viewer \
 - `image.repository`, `image.tag` — container image for backend and agents (same image)
 - `config.watch.*` — glob include/exclude for namespaces, pvcs, storageClasses. Empty include means “match nothing”.
 - `config.mode.dataPlane` — data-plane mode:
-  - `agent-per-namespace` (default): one agent per namespace, mounts all matched PVCs at `/data/<pvc>`; adding/removing PVC requires recreating that agent Pod.
+  - `agent-per-namespace` (default): one or more agents per namespace, grouped by effective security profile (fsGroup/runAs/supplemental/readOnly). Each mounts matched PVCs at `/data/<pvc>`; adding/removing PVC may recreate the respective agent Pod.
   - `agent-per-pvc`: one lightweight agent Pod per matched PVC; no restarts on changes (recommended for full hot-reload experience).
   - `mount-in-backend`: mount listed PVCs into the backend Pod via `config.mountPVCs` (requires Pod restart on changes).
 - `config.mountPVCs[]` — list of PVCs to mount when `mount-in-backend` is selected.
@@ -31,7 +31,7 @@ helm upgrade --install pvc-viewer \
 ## How agents are managed
 
 The backend watches the cluster according to `config.watch.*` and reconciles desired agents:
-- For `agent-per-namespace`: it creates one Service+Pod per namespace (`pvc-viewer-agent-ns-<hash>`), with multiple volume mounts `/data/<pvc>`.
+- For `agent-per-namespace`: it creates one or more Service+Pod per namespace (`pvc-viewer-agent-ns-<nsPart>-<groupHash>`), each group mounting a set of PVCs under `/data/<pvc>` with a uniform security profile.
 - For `agent-per-pvc`: it creates one Service+Pod per PVC (`pvc-viewer-agent-<hash>`), each mounting its PVC at `/data`.
 
 Agents expose internal HTTP endpoints used by backend proxy:
@@ -39,6 +39,7 @@ Agents expose internal HTTP endpoints used by backend proxy:
 - `GET /v1/file?path=...` (Range/ETag)
 - `DELETE /v1/file?path=...`
 - `POST /v1/upload?path=/dir` (multipart)
+- `POST /v1/empty?path=/dir` (remove all entries)
 
 ## Security
 

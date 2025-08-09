@@ -5,8 +5,9 @@
 ![Trivy CI](https://github.com/ValeriiKretinin/kubernetes-pvc-viewer/actions/workflows/trivy.yml/badge.svg)
 ![Release](https://img.shields.io/github/v/release/ValeriiKretinin/kubernetes-pvc-viewer?sort=semver&display_name=tag&color=blue)
 
-Browse, download, upload (optional), and delete files on Kubernetes PersistentVolumeClaims with a modern, lightweight UI. Hot-reload configuration via ConfigMap, smart include/exclude matchers, and two data-plane modes:
+Browse, download, upload (optional), and delete files on Kubernetes PersistentVolumeClaims with a modern, lightweight UI. Hot-reload configuration via ConfigMap, smart include/exclude matchers, and flexible data-plane modes:
 
+- agent-per-namespace: one or more agents per namespace (grouped by security profile), each mounts matched PVCs at `/data/<pvc>`
 - agent-per-pvc (recommended): one lightweight agent Pod per matched PVC, no restarts on config changes
 - mount-in-backend: mount multiple PVCs directly into backend Pod (requires restart on changes)
 
@@ -16,9 +17,9 @@ The single container image embeds the React UI, backend API gateway/orchestrator
 
 - Hot-reload ConfigMap: update watched namespaces/PVCs/storageClasses without restarts (agent-per-pvc)
 - Glob matchers (doublestar): include/exclude for namespaces, PVCs, storageClasses
-- Agent (per-namespace or per-PVC): POSIX FS access; list/tree (pagination), range download with ETag, safe delete, upload (multipart), path traversal protection
+- Agent (per-namespace or per-PVC): POSIX FS access; list/tree (pagination), range download with ETag, safe delete, upload (multipart), empty directory, path traversal protection
 - Security per storageClass: fsGroup/supplementalGroups overrides, readOnly mode
-- Simple UI (React + Vite + Tailwind): sidebar (namespaces/PVCs), breadcrumbs, table/grid, preview skeleton, context menu, progress bar, error toasts
+- Simple UI (React + Vite + Tailwind): header (namespace/PVC selectors + search), left folder tree, right file table, inline preview (text/images/PDF), context menu, progress bar, error toasts
 - Prometheus metrics endpoint (/metrics)
 - Helm chart with RBAC, Service, Ingress (optional), NetworkPolicy, ConfigMap
 
@@ -36,7 +37,7 @@ Web UI (static)  <—HTTPS—>  Backend (Go)
 
 ## Modes
 
-- agent-per-namespace (default): one agent per namespace, mounts all matched PVCs at `/data/<pvc>`
+- agent-per-namespace (default): creates one or more agents per namespace grouped by effective security profile (fsGroup/runAs/supplemental/readOnly). Each agent mounts matched PVCs at `/data/<pvc>`.
 - agent-per-pvc: backend manages one lightweight agent per matched PVC (полный hot-reload без рестартов)
 - mount-in-backend: backend Pod mounts multiple PVCs (defined in values), requires restart on changes
 
@@ -117,6 +118,7 @@ On changes to `mountPVCs` backend Pod will restart (checksum/config) to re-mount
 - `GET /api/v1/download?ns=<ns>&pvc=<pvc>&path=<file>` (Range/ETag supported)
 - `DELETE /api/v1/file?ns=<ns>&pvc=<pvc>&path=<file|dir>`
 - `POST /api/v1/upload?ns=<ns>&pvc=<pvc>&path=<dir>` (multipart)
+- `POST /api/v1/empty-dir?ns=<ns>&pvc=<pvc>&path=<dir>` (remove all entries in directory)
 - `GET /api/v1/pvc-status?ns=<ns>&pvc=<pvc>`
 - `GET /api/v1/healthz`, `GET /api/v1/readyz`, `GET /metrics`
 

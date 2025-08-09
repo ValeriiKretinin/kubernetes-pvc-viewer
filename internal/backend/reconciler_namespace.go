@@ -107,6 +107,15 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 		if recreate {
 			ann := map[string]string{"pvcviewer.k8s.io/spec-hash": desiredHash}
 			sec := g.sec
+			// Improve compatibility: if FSGroup is set but RunAsGroup is not, align primary GID with FSGroup
+			if sec.RunAsGroup == nil && sec.FSGroup != nil {
+				sec.RunAsGroup = sec.FSGroup
+			}
+			// Always include FSGroup into supplemental groups as well
+			sup := mergeSupplemental(r.Defaults.SupplementalGroups, sec.SupplementalGroups)
+			if sec.FSGroup != nil {
+				sup = mergeSupplemental(sup, []int64{*sec.FSGroup})
+			}
 			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: labels, Annotations: ann}, Spec: corev1.PodSpec{
 				Containers: []corev1.Container{{
 					Name:         "agent",
@@ -128,12 +137,17 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 					RunAsUser:          pickInt(sec.RunAsUser, 65532),
 					RunAsGroup:         pickInt(sec.RunAsGroup, 65532),
 					FSGroup:            sec.FSGroup,
-					SupplementalGroups: mergeSupplemental(r.Defaults.SupplementalGroups, sec.SupplementalGroups),
+					SupplementalGroups: sup,
 				},
 			}}
+			// FSGroupChangePolicy to avoid unnecessary chown and ensure group applied
+			if pod.Spec.SecurityContext != nil {
+				mode := corev1.PodFSGroupChangePolicy("OnRootMismatch")
+				pod.Spec.SecurityContext.FSGroupChangePolicy = &mode
+			}
 			if created, err := r.Client.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{}); err == nil {
 				if r.Logger != nil {
-					r.Logger.Infow("ns agent group ensured", "namespace", namespace, "name", created.Name, "pvcs", g.pvcs)
+					r.Logger.Infow("ns agent group ensured", "namespace", namespace, "name", created.Name, "pvcs", g.pvcs, "fsGroup", valueOrNil(sec.FSGroup), "runAsUser", valueOrNil(sec.RunAsUser), "runAsGroup", valueOrNil(sec.RunAsGroup), "readOnly", sec.ReadOnly)
 				}
 			}
 		}
