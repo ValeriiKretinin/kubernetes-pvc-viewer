@@ -18,7 +18,7 @@ export function ConfirmDialog({ open, title, description, confirmText = 'Confirm
         {description && <div className="text-sm text-muted-weak mb-4">{description}</div>}
         <div className="flex justify-end gap-2">
           <button className="px-3 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800" onClick={onCancel}>{cancelText}</button>
-          <button className="px-3 py-1.5 rounded-md border border-transparent bg-blue-600 text-white hover:bg-blue-500" onClick={onConfirm}>{confirmText}</button>
+          <button className="px-3 py-1.5 rounded-md border border-transparent bg-red-600 text-white hover:bg-red-500" onClick={onConfirm}>{confirmText}</button>
         </div>
       </div>
     </div>

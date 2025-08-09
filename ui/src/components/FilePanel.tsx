@@ -18,7 +18,7 @@ export function FilePanel({ namespace, pvc, query }: Props) {
   const [progress, setProgress] = useState<number>(0)
   const [view, setView] = useState<'table'|'grid'>('table')
   const [reloadTick, setReloadTick] = useState<number>(0)
-  const [confirm, setConfirm] = useState<{open:boolean; path:string}|>( { open:false, path:'' } as any )
+  const [confirm, setConfirm] = useState<{open:boolean; path:string}>({ open:false, path:'' })
   const limit = 200
 
   useEffect(() => { setPath('/'); setError(''); setEntries([]); setTotal(0); setOffset(0) }, [namespace, pvc])
