@@ -12,15 +12,20 @@ type Props = {
   setTheme: (t: 'light'|'dark')=>void
   nsLoading?: boolean
   pvcsLoading?: boolean
+  onToggleSidebar?: ()=>void
+  sidebarOpen?: boolean
 }
 
-export function HeaderBar({ namespaces, namespace, onNamespace, pvcs, pvc, onPvc, onSearch, theme, setTheme, nsLoading, pvcsLoading }: Props) {
+export function HeaderBar({ namespaces, namespace, onNamespace, pvcs, pvc, onPvc, onSearch, theme, setTheme, nsLoading, pvcsLoading, onToggleSidebar, sidebarOpen }: Props) {
   const [q, setQ] = useState('')
   useEffect(()=>{ onSearch(q) }, [q])
   return (
     <div className="header-gradient sticky top-0 z-40">
       <div className="max-w-screen-2xl mx-auto px-4 py-3 flex items-center gap-3">
-        <div className="text-xl font-semibold tracking-tight text-strong">PVC Viewer</div>
+        <div className="flex items-center gap-2">
+          <button className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-800/70" onClick={onToggleSidebar} aria-label="Toggle sidebar">☰</button>
+          <div className="text-xl font-semibold tracking-tight text-strong">PVC Viewer</div>
+        </div>
         <div className="ml-4 flex items-center gap-2">
           <select className="px-2 py-1 rounded bg-white/70 dark:bg-gray-800/70 border border-gray-300 dark:border-gray-600 backdrop-blur"
                   value={namespace} onChange={e=>onNamespace(e.target.value)}>

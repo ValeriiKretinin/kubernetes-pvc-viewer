@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
 	"sort"
 
 	corev1 "k8s.io/api/core/v1"
@@ -89,8 +90,20 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 			mounts = append(mounts, corev1.VolumeMount{Name: vname, MountPath: "/data/" + pvc, ReadOnly: g.sec.ReadOnly})
 		}
 
-		// Spec hash to detect PVC set changes
-		h := sha1.Sum([]byte(stringsJoin(g.pvcs, ",")))
+		// Spec hash includes PVC set + security + agent image + readOnly
+		base := stringsJoin(g.pvcs, ",")
+		ru, rg, fg := int64(0), int64(0), int64(0)
+		if g.sec.RunAsUser != nil {
+			ru = *g.sec.RunAsUser
+		}
+		if g.sec.RunAsGroup != nil {
+			rg = *g.sec.RunAsGroup
+		}
+		if g.sec.FSGroup != nil {
+			fg = *g.sec.FSGroup
+		}
+		specStr := base + fmt.Sprintf("|img=%s|ru=%d|rg=%d|fg=%d|ro=%t|supp=%v", r.AgentImage, ru, rg, fg, g.sec.ReadOnly, mergeSupplemental(r.Defaults.SupplementalGroups, g.sec.SupplementalGroups))
+		h := sha1.Sum([]byte(specStr))
 		desiredHash := hex.EncodeToString(h[:8])
 
 		// Service

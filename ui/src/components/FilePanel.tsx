@@ -171,7 +171,7 @@ export function FilePanel({ namespace, pvc, query }: Props) {
       {preview && (
         <PreviewPane entry={preview} namespace={namespace} pvc={pvc} onClose={()=>setPreview(null)} />
       )}
-      <div className="border-t border-gray-200 dark:border-gray-900 p-2 flex items-center justify-between text-sm">
+      <div className="border-t border-gray-200 dark:border-gray-900 p-2 flex items-center justify-between text-sm text-muted">
         <div>{offset+1}-{Math.min(offset+limit, total)} of {total}</div>
         <div className="flex gap-2">
           <button disabled={!canPrev} className="px-2 py-1 border rounded disabled:opacity-50" onClick={()=>setOffset(Math.max(0, offset-limit))}>Prev</button>

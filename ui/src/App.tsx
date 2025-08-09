@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { FilePanel } from './components/FilePanel'
 import { HeaderBar } from './components/HeaderBar'
+import { Bars3Icon } from '@heroicons/react/24/outline'
 
 export default function App() {
   const [namespaces, setNamespaces] = useState<string[]>(() => {
@@ -25,6 +26,7 @@ export default function App() {
     return 'dark'
   })
   const [query, setQuery] = useState<string>('')
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false)
 
   useEffect(() => {
     setNsLoading(true)
@@ -65,10 +67,15 @@ export default function App() {
         <HeaderBar namespaces={namespaces} namespace={namespace} onNamespace={setNamespace}
                    pvcs={pvcs} pvc={pvc} onPvc={setPvc}
                    onSearch={setQuery} theme={theme} setTheme={t=>setTheme(t)}
-                   nsLoading={nsLoading} pvcsLoading={pvcsLoading} />
+                   nsLoading={nsLoading} pvcsLoading={pvcsLoading}
+                   onToggleSidebar={()=>setSidebarOpen(o=>!o)} sidebarOpen={sidebarOpen} />
         <div className="flex-1 flex overflow-hidden">
-          <Sidebar namespaces={namespaces} namespace={namespace} onNamespace={setNamespace}
-                   pvcs={pvcs} pvc={pvc} onPvc={setPvc} pvcsLoading={pvcsLoading} nsLoading={nsLoading} />
+          <div className={`relative transition-all duration-200 ${sidebarOpen ? 'w-80' : 'w-0'} overflow-hidden surface-gradient bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800`}> 
+            <div className={`absolute inset-0 transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+              <Sidebar namespaces={namespaces} namespace={namespace} onNamespace={setNamespace}
+                       pvcs={pvcs} pvc={pvc} onPvc={setPvc} pvcsLoading={pvcsLoading} nsLoading={nsLoading} />
+            </div>
+          </div>
           <div className="flex-1 overflow-hidden">
             <FilePanel namespace={namespace} pvc={pvc} query={query} />
           </div>

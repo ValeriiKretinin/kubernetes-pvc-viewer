@@ -107,16 +107,43 @@ func (r *Reconciler) ensureAgent(ctx context.Context, t Target) error {
 		}
 	}
 
-	// Ensure Pod
-	if _, err := r.Client.CoreV1().Pods(t.Namespace).Get(ctx, name, metav1.GetOptions{}); err == nil {
-		return nil
-	}
 	// Resolve security for this storageClass
 	sec := r.resolveSecurityForStorageClass(t.PVCName, t.StorageClass)
 
 	ro := sec.ReadOnly
+	// Compute desired spec hash to detect changes (image/security/readOnly)
+	ru, rg, fg := int64(0), int64(0), int64(0)
+	if sec.RunAsUser != nil {
+		ru = *sec.RunAsUser
+	}
+	if sec.RunAsGroup != nil {
+		rg = *sec.RunAsGroup
+	}
+	if sec.FSGroup != nil {
+		fg = *sec.FSGroup
+	}
+	// sort supplemental for stability
+	supp := append([]int64{}, mergeSupplemental(r.Defaults.SupplementalGroups, sec.SupplementalGroups)...)
+	// stringify supp
+	suppStr := ""
+	for i, g := range supp {
+		if i > 0 {
+			suppStr += ","
+		}
+		suppStr += fmt.Sprintf("%d", g)
+	}
+	sh := sha1.Sum([]byte(fmt.Sprintf("img=%s|ru=%d|rg=%d|fg=%d|ro=%t|supp=%s", r.AgentImage, ru, rg, fg, ro, suppStr)))
+	desiredHash := hex.EncodeToString(sh[:8])
+
+	// If pod exists with different hash -> recreate
+	if existing, err := r.Client.CoreV1().Pods(t.Namespace).Get(ctx, name, metav1.GetOptions{}); err == nil {
+		if existing.Annotations != nil && existing.Annotations["pvcviewer.k8s.io/spec-hash"] == desiredHash {
+			return nil
+		}
+		_ = r.Client.CoreV1().Pods(t.Namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	}
 	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: t.Namespace, Labels: labels},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: t.Namespace, Labels: labels, Annotations: map[string]string{"pvcviewer.k8s.io/spec-hash": desiredHash}},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{{
 				Name:         "agent",
