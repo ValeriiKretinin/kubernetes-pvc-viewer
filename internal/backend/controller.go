@@ -80,13 +80,20 @@ func (c *Controller) StartPeriodic(ctx context.Context, cfgProvider func() *conf
 				return
 			case <-t.C:
 				cfg := cfgProvider()
-				targets, err := c.Disc.BuildTargets(ctx, cfg)
-				if err != nil {
-					c.Logger.Warnw("periodic build targets failed", "error", err)
+				if cfg.Mode.DataPlane == "agent-per-namespace" {
+					c.reconcilePerNamespace(ctx, cfg)
 					continue
 				}
-				if err := c.Recon.Reconcile(ctx, targets); err != nil {
-					c.Logger.Warnw("periodic reconcile failed", "error", err)
+				if cfg.Mode.DataPlane == "agent-per-pvc" {
+					targets, err := c.Disc.BuildTargets(ctx, cfg)
+					if err != nil {
+						c.Logger.Warnw("periodic build targets failed", "error", err)
+						continue
+					}
+					if err := c.Recon.Reconcile(ctx, targets); err != nil {
+						c.Logger.Warnw("periodic reconcile failed", "error", err)
+					}
+					continue
 				}
 			}
 		}
