@@ -7,6 +7,7 @@ export default function App() {
   const [namespace, setNamespace] = useState<string>('')
   const [pvcs, setPvcs] = useState<string[]>([])
   const [pvc, setPvc] = useState<string>('')
+  const [theme, setTheme] = useState<'light'|'dark'>(() => (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
 
   useEffect(() => {
     fetch('/api/v1/namespaces').then(r => r.json()).then(setNamespaces).catch(()=>{})
@@ -19,7 +20,12 @@ export default function App() {
   }, [namespace])
 
   return (
-    <div className="flex h-screen">
+    <div className={"flex h-screen "+ (theme==='dark'?'dark':'')}>
+      <div className="fixed top-3 right-3 z-10">
+        <button className="px-3 py-1 rounded border bg-white/70 dark:bg-gray-800/70 backdrop-blur" onClick={()=>setTheme(t=>t==='dark'?'light':'dark')}>
+          {theme==='dark'?'🌙 Dark':'☀️ Light'}
+        </button>
+      </div>
       <Sidebar namespaces={namespaces} namespace={namespace} onNamespace={setNamespace}
                pvcs={pvcs} pvc={pvc} onPvc={setPvc} />
       <div className="flex-1 overflow-hidden">

@@ -37,8 +37,8 @@ export function FilePanel({ namespace, pvc }: Props) {
   const canNext = offset + limit < total
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="border-b border-gray-200 dark:border-gray-700 px-4 py-2 flex items-center gap-2 text-sm">
+    <div className="h-full flex flex-col bg-white dark:bg-gray-950">
+      <div className="border-b border-gray-200 dark:border-gray-800 px-4 py-2 flex items-center gap-2 text-sm sticky top-0 bg-white/70 dark:bg-gray-950/70 backdrop-blur z-10">
         {breadcrumbs.map((b, i) => (
           <span key={b.path}>
             {i>0 && <span className="opacity-50">/</span>}<button className="hover:underline" onClick={()=>{setPath(b.path); setOffset(0)}}>{b.name}</button>
@@ -52,10 +52,10 @@ export function FilePanel({ namespace, pvc }: Props) {
           </thead>
           <tbody>
             {entries.map(e => (
-              <tr key={e.path} className="border-b border-gray-100 dark:border-gray-800">
+              <tr key={e.path} className="border-b border-gray-100 dark:border-gray-900 hover:bg-gray-50 dark:hover:bg-gray-900/70 transition">
                 <td className="p-2">
                   {e.isDir ? (
-                    <button className="text-blue-600 dark:text-blue-400" onClick={()=>{setPath(e.path); setOffset(0)}}>{e.name}</button>
+                    <button className="text-blue-600 dark:text-blue-400 font-medium" onClick={()=>{setPath(e.path); setOffset(0)}}>{e.name}</button>
                   ) : e.name}
                 </td>
                 <td className="p-2">{e.isDir ? '-' : formatSize(e.size)}</td>
@@ -75,11 +75,11 @@ export function FilePanel({ namespace, pvc }: Props) {
         </table>
       </div>
       {preview && (
-        <div className="border-t border-gray-200 dark:border-gray-700 p-3">
+        <div className="border-t border-gray-200 dark:border-gray-900 p-3">
           <div className="font-medium mb-2">Preview: {preview.name}</div>
         </div>
       )}
-      <div className="border-t border-gray-200 dark:border-gray-700 p-2 flex items-center justify-between text-sm">
+      <div className="border-t border-gray-200 dark:border-gray-900 p-2 flex items-center justify-between text-sm">
         <div>{offset+1}-{Math.min(offset+limit, total)} of {total}</div>
         <div className="flex gap-2">
           <button disabled={!canPrev} className="px-2 py-1 border rounded disabled:opacity-50" onClick={()=>setOffset(Math.max(0, offset-limit))}>Prev</button>
@@ -87,10 +87,10 @@ export function FilePanel({ namespace, pvc }: Props) {
         </div>
       </div>
       {!!error && (
-        <div className="fixed bottom-4 right-4 bg-red-600 text-white px-3 py-2 rounded shadow" onClick={()=>setError('')}>{error}</div>
+        <div className="fixed bottom-4 right-4 bg-red-600 text-white px-3 py-2 rounded shadow-lg" onClick={()=>setError('')}>{error}</div>
       )}
       {progress>0 && progress<100 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-3 py-2 rounded shadow">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-3 py-2 rounded shadow-lg">
           Downloading... {progress.toFixed(0)}%
         </div>
       )}

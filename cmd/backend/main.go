@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	iofs "io/fs"
 	"net/http"
 	"os"
 	"os/signal"
@@ -102,9 +103,12 @@ func main() {
 		})
 	})
 
-	// Static UI (embedded)
-	fs := http.FS(embeddedStatic)
-	r.Handle("/*", http.FileServer(fs))
+	// Static UI (embedded). Serve contents of subdir "static" as root.
+	staticFS, err := iofs.Sub(embeddedStatic, "static")
+	if err != nil {
+		sugar.Fatalw("embed FS error", "error", err)
+	}
+	r.Handle("/*", http.FileServer(http.FS(staticFS)))
 
 	srv := &http.Server{Addr: ":8080", Handler: r}
 
