@@ -20,5 +20,11 @@ html, body, #root { height: 100%; }
 .dark button { color: rgb(226 232 240); }
 .dark .sticky { background-color: rgba(2, 6, 23, 0.85); }
 
+/* Unified button style (Upload here, theme switch) */
+.btn {
+  @apply px-3 py-1 rounded border shadow-sm transition bg-white/80 dark:bg-gray-800/70 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 backdrop-blur;
+}
+.btn:hover { @apply bg-white dark:bg-gray-800; }
+
 
 

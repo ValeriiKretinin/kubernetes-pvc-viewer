@@ -19,14 +19,17 @@ export function FilePanel({ namespace, pvc }: Props) {
 
   useEffect(() => {
     if (!namespace || !pvc) return
+    const ac = new AbortController()
     const q = new URLSearchParams({ ns: namespace, pvc, path, limit: String(limit), offset: String(offset) })
-    fetch(`/api/v1/tree?${q.toString()}`)
+    fetch(`/api/v1/tree?${q.toString()}`, { signal: ac.signal })
       .then(async r => {
         if (!r.ok) throw new Error(`API ${r.status}`)
         setTotal(Number(r.headers.get('X-Total-Count')||'0'))
         try { return await r.json() } catch { return [] }
       })
-      .then(setEntries).catch(e=>setError(String(e)))
+      .then(setEntries)
+      .catch(e=>{ if ((e as any).name !== 'AbortError') setError(String(e)) })
+    return () => ac.abort()
   }, [namespace, pvc, path, offset])
 
   const breadcrumbs = useMemo(() => {
@@ -49,8 +52,8 @@ export function FilePanel({ namespace, pvc }: Props) {
           </span>
         ))}
         <div className="ml-auto flex gap-2">
-          <button className="px-2 py-1 border rounded" onClick={()=>handleUpload(namespace, pvc, path, setError, ()=>setPath(path))}>Upload here</button>
-          <button className="px-2 py-1 border rounded" onClick={()=>handleEmptyDir(namespace, pvc, path, setError, ()=>setPath(path))}>Empty dir</button>
+          <button className="btn" onClick={()=>handleUpload(namespace, pvc, path, setError, ()=>setPath(path))}>Upload here</button>
+          <button className="btn" onClick={()=>handleEmptyDir(namespace, pvc, path, setError, ()=>setPath(path))}>Empty dir</button>
         </div>
       </div>
       <div className="flex-1 overflow-auto">
