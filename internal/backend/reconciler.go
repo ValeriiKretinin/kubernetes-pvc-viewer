@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,9 +28,13 @@ type Reconciler struct {
 	AgentImage string
 	Defaults   config.SecuritySpec
 	Overrides  []config.OverrideSpec
+	Disabled   atomic.Bool
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, targets []Target) error {
+	if r.Disabled.Load() {
+		return nil
+	}
 	desired := map[string]Target{}
 	for _, t := range targets {
 		desired[key(t)] = t
@@ -73,19 +78,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, targets []Target) error {
 }
 
 func (r *Reconciler) ensureAgent(ctx context.Context, t Target) error {
+	if r.Disabled.Load() {
+		return nil
+	}
 	name := AgentName(t.Namespace, t.PVCName)
 	labels := map[string]string{
 		"app":                  "pvc-viewer-agent",
 		"pvcviewer.k8s.io/ns":  t.Namespace,
 		"pvcviewer.k8s.io/pvc": t.PVCName,
 	}
-	// Ensure Service (headless)
+	// Ensure Service (ClusterIP)
 	_, _ = r.Client.CoreV1().Services(t.Namespace).Get(ctx, name, metav1.GetOptions{})
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: t.Namespace, Labels: labels},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: corev1.ClusterIPNone,
-			Selector:  labels,
+			Selector: labels,
 			Ports: []corev1.ServicePort{{
 				Name: "http", Port: 8090, TargetPort: intstr.FromInt(8090), Protocol: corev1.ProtocolTCP,
 			}},

@@ -77,6 +77,18 @@ func main() {
 	// API
 	r.Route("/api/v1", func(api chi.Router) {
 		backend.RegisterReadAPIs(api, clientset, cfgState.Current)
+		api.Post("/gc", func(w http.ResponseWriter, r *http.Request) {
+			sugar.Infow("manual GC requested")
+			controller.Recon.Disabled.Store(true)
+			defer controller.Recon.Disabled.Store(false)
+			if err := controller.Recon.GCPerPVCAll(r.Context()); err != nil {
+				sugar.Warnw("gc per-pvc agents failed", "error", err)
+			}
+			if err := controller.Recon.GCNamespaceAgents(r.Context(), map[string]struct{}{}); err != nil {
+				sugar.Warnw("gc ns agents failed", "error", err)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		})
 		api.Get("/tree", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
@@ -158,6 +170,9 @@ func main() {
 	sugar.Infow("shutting down")
 	// Best-effort cleanup of all agents on shutdown (e.g., Helm uninstall)
 	go func() {
+		// Disable reconciler during GC to avoid races
+		controller.Recon.Disabled.Store(true)
+		defer controller.Recon.Disabled.Store(false)
 		bg := context.Background()
 		if err := controller.Recon.GCPerPVCAll(bg); err != nil {
 			sugar.Warnw("gc per-pvc agents on shutdown failed", "error", err)
@@ -196,7 +211,15 @@ func computeRouting(cfg *config.Config, ns, pvc, path, rawQuery string) (svcName
 		if !strings.HasPrefix(decoded, "/") {
 			decoded = "/" + decoded
 		}
-		q.Set("path", "/"+pvc+decoded)
+		// Avoid double-prefixing if already under /<pvc>
+		prefix := "/" + pvc
+		if decoded == "/" {
+			q.Set("path", prefix+"/")
+		} else if decoded == prefix || strings.HasPrefix(decoded, prefix+"/") {
+			q.Set("path", decoded)
+		} else {
+			q.Set("path", prefix+decoded)
+		}
 		return backend.NamespaceAgentName(ns), q.Encode()
 	}
 	return backend.AgentName(ns, pvc), rawQuery

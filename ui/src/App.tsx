@@ -14,6 +14,9 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    // reset PVC on namespace change to avoid stale selection/404s
+    setPvc('')
+    setPvcs([])
     if (!namespace) return
     fetch(`/api/v1/pvcs?namespace=${encodeURIComponent(namespace)}`)
       .then(r => r.json()).then(setPvcs).catch(()=>{})

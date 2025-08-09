@@ -15,8 +15,10 @@ spec:
         app: pvc-viewer-backend
       annotations:
         checksum/config: {{ include (print .Template.BasePath "/configmap.yaml") . | sha256sum }}
+            kubernetes.io/change-cause: "pvc-viewer backend"
     spec:
       serviceAccountName: pvc-viewer-backend
+          terminationGracePeriodSeconds: 10
       containers:
         - name: backend
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
@@ -36,6 +38,10 @@ spec:
               value: {{ .Values.image.repository }}:{{ .Values.image.tag }}
             - name: PVC_VIEWER_LOG_LEVEL
               value: info
+              lifecycle:
+                preStop:
+                  exec:
+                    command: ["/bin/sh","-c","wget -qO- http://127.0.0.1:8080/api/v1/healthz >/dev/null 2>&1; exit 0"]
           {{- if eq .Values.config.mode.dataPlane "mount-in-backend" }}
           volumeMounts:
             - name: config

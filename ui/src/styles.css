@@ -4,5 +4,21 @@
 
 html, body, #root { height: 100%; }
 
+/* Improve dark theme contrast */
+.dark {
+  --tw-bg-opacity: 1;
+}
+.dark body { background-color: rgb(3 7 18/var(--tw-bg-opacity)); }
+.dark .text-muted { color: rgb(148 163 184); }
+.dark table thead { color: rgb(226 232 240); }
+.dark table tbody tr { color: rgb(203 213 225); }
+.dark .border { border-color: rgb(51 65 85); }
+.dark .hover\:bg-contrast:hover { background-color: rgba(255, 255, 255, 0.05); }
+
+/* Specific elements */
+.dark select { background-color: rgb(31 41 55); color: rgb(226 232 240); border-color: rgb(75 85 99); }
+.dark button { color: rgb(226 232 240); }
+.dark .sticky { background-color: rgba(2, 6, 23, 0.85); }
+
 
 
