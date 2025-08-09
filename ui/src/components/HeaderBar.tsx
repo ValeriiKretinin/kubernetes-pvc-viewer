@@ -39,8 +39,9 @@ export function HeaderBar({ namespaces, namespace, onNamespace, pvcs, pvc, onPvc
           </select>
         </div>
         <div className="ml-4 flex-1">
-          <input className="w-full px-3 py-2 rounded-lg bg-white/80 dark:bg-gray-800/70 border border-gray-300 dark:border-gray-600 backdrop-blur focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+          <input className="w-full px-3 py-2 rounded-lg bg-white/80 dark:bg-gray-800/70 border border-gray-300 dark:border-gray-600 backdrop-blur focus:outline-none focus:ring-2 focus:ring-blue-500/40 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400"
                  placeholder="Search files by name…"
+                 spellCheck={false} autoCorrect="off" autoComplete="off"
                  value={q} onChange={e=>setQ(e.target.value)} />
         </div>
         <button className="btn" onClick={()=>setTheme(theme==='dark'?'light':'dark')}>
