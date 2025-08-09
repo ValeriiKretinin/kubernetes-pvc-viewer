@@ -156,16 +156,16 @@ func main() {
 
 	<-ctx.Done()
 	sugar.Infow("shutting down")
-  // Best-effort cleanup of all agents on shutdown (e.g., Helm uninstall)
-  go func() {
-    bg := context.Background()
-    if err := controller.Recon.GCPerPVCAll(bg); err != nil {
-      sugar.Warnw("gc per-pvc agents on shutdown failed", "error", err)
-    }
-    if err := controller.Recon.GCNamespaceAgents(bg, map[string]struct{}{}); err != nil {
-      sugar.Warnw("gc ns agents on shutdown failed", "error", err)
-    }
-  }()
+	// Best-effort cleanup of all agents on shutdown (e.g., Helm uninstall)
+	go func() {
+		bg := context.Background()
+		if err := controller.Recon.GCPerPVCAll(bg); err != nil {
+			sugar.Warnw("gc per-pvc agents on shutdown failed", "error", err)
+		}
+		if err := controller.Recon.GCNamespaceAgents(bg, map[string]struct{}{}); err != nil {
+			sugar.Warnw("gc ns agents on shutdown failed", "error", err)
+		}
+	}()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
