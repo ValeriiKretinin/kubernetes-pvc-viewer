@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { FilePanel } from './components/FilePanel'
+import { HeaderBar } from './components/HeaderBar'
 
 export default function App() {
   const [namespaces, setNamespaces] = useState<string[]>(() => {
@@ -16,6 +17,7 @@ export default function App() {
   const [pvcsLoading, setPvcsLoading] = useState<boolean>(false)
   const [nsLoading, setNsLoading] = useState<boolean>(false)
   const [theme, setTheme] = useState<'light'|'dark'>(() => (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
+  const [query, setQuery] = useState<string>('')
 
   useEffect(() => {
     setNsLoading(true)
@@ -49,15 +51,18 @@ export default function App() {
 
   return (
     <div className={"flex h-screen "+ (theme==='dark'?'dark':'')}>
-      <div className="fixed top-3 right-3 z-50">
-        <button className="btn" onClick={()=>setTheme(t=>t==='dark'?'light':'dark')}>
-          {theme==='dark'?'🌙 Dark':'☀️ Light'}
-        </button>
-      </div>
-      <Sidebar namespaces={namespaces} namespace={namespace} onNamespace={setNamespace}
-               pvcs={pvcs} pvc={pvc} onPvc={setPvc} pvcsLoading={pvcsLoading} nsLoading={nsLoading} />
-      <div className="flex-1 overflow-hidden">
-        <FilePanel namespace={namespace} pvc={pvc} />
+      <div className="flex-1 flex flex-col">
+        <HeaderBar namespaces={namespaces} namespace={namespace} onNamespace={setNamespace}
+                   pvcs={pvcs} pvc={pvc} onPvc={setPvc}
+                   onSearch={setQuery} theme={theme} setTheme={t=>setTheme(t)}
+                   nsLoading={nsLoading} pvcsLoading={pvcsLoading} />
+        <div className="flex-1 flex overflow-hidden">
+          <Sidebar namespaces={namespaces} namespace={namespace} onNamespace={setNamespace}
+                   pvcs={pvcs} pvc={pvc} onPvc={setPvc} pvcsLoading={pvcsLoading} nsLoading={nsLoading} />
+          <div className="flex-1 overflow-hidden">
+            <FilePanel namespace={namespace} pvc={pvc} query={query} />
+          </div>
+        </div>
       </div>
     </div>
   )

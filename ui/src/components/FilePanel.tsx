@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ContextMenu } from './ContextMenu'
+import { PreviewPane } from './PreviewPane'
 
 type Entry = { name: string; path: string; isDir: boolean; size: number; mod: string; uid?: number; gid?: number; mode?: number }
 
-type Props = { namespace: string; pvc: string }
+type Props = { namespace: string; pvc: string; query?: string }
 
-export function FilePanel({ namespace, pvc }: Props) {
+export function FilePanel({ namespace, pvc, query }: Props) {
   const [path, setPath] = useState<string>('/')
   const [entries, setEntries] = useState<Entry[]>([])
   const [total, setTotal] = useState<number>(0)
@@ -43,6 +44,15 @@ export function FilePanel({ namespace, pvc }: Props) {
   const canPrev = offset > 0
   const canNext = offset + limit < total
 
+  // listen to tree navigation
+  useEffect(() => {
+    const onNav = (e: any) => {
+      if (e?.detail?.path) { setPath(e.detail.path); setOffset(0) }
+    }
+    window.addEventListener('pvcviewer:navigate', onNav as any)
+    return () => window.removeEventListener('pvcviewer:navigate', onNav as any)
+  }, [])
+
   return (
     <div className="h-full flex flex-col bg-white dark:bg-gray-950">
       <div className="border-b border-gray-200 dark:border-gray-800 px-4 py-2 flex items-center gap-2 text-sm sticky top-0 bg-white/70 dark:bg-gray-950/70 backdrop-blur z-10">
@@ -62,7 +72,9 @@ export function FilePanel({ namespace, pvc }: Props) {
             <tr><th className="p-2">Name</th><th>Size</th><th>Modified</th><th>Owner</th><th>Group</th><th>Mode</th><th></th></tr>
           </thead>
           <tbody>
-            {entries.map(e => (
+            {entries
+              .filter(e => !query || e.name.toLowerCase().includes(query.toLowerCase()))
+              .map(e => (
               <tr key={e.path} className="border-b border-gray-100 dark:border-gray-900 hover:bg-gray-50 dark:hover:bg-gray-900/70 transition">
                 <td className="p-2">
                   {e.isDir ? (
@@ -79,6 +91,7 @@ export function FilePanel({ namespace, pvc }: Props) {
                     onDownload={!e.isDir ? ()=>downloadWithProgress(namespace, pvc, e.path, setProgress, setError) : undefined}
                     onDelete={()=>handleDelete(namespace, pvc, e.path, !!e.isDir, setError, setPath)}
                     onUpload={e.isDir ? ()=>handleUpload(namespace, pvc, e.path, setError, ()=>setPath(e.path)) : undefined}
+                    onInfo={!e.isDir ? ()=>setPreview(e) : undefined}
                   />
                 </td>
               </tr>
@@ -87,9 +100,7 @@ export function FilePanel({ namespace, pvc }: Props) {
         </table>
       </div>
       {preview && (
-        <div className="border-t border-gray-200 dark:border-gray-900 p-3">
-          <div className="font-medium mb-2">Preview: {preview.name}</div>
-        </div>
+        <PreviewPane entry={preview} namespace={namespace} pvc={pvc} onClose={()=>setPreview(null)} />
       )}
       <div className="border-t border-gray-200 dark:border-gray-900 p-2 flex items-center justify-between text-sm">
         <div>{offset+1}-{Math.min(offset+limit, total)} of {total}</div>
