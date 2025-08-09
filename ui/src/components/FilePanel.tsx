@@ -112,9 +112,9 @@ export function FilePanel({ namespace, pvc, query }: Props) {
             </tbody>
           </table>
         ) : (
-          <div className="p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 relative z-0">
+          <div className="p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 relative z-0 overflow-visible">
             {filtered.map(e => (
-              <div key={e.path} className="panel p-3 transition will-change-transform hover:-translate-y-0.5 hover:shadow-md relative z-10">
+              <div key={e.path} className="panel p-3 transition hover:shadow-md relative z-20 overflow-visible" style={{ isolation: 'isolate' }}>
                 <div className="flex items-start gap-2">
                   {e.isDir ? <FolderIcon className="w-6 h-6 text-gray-500 dark:text-gray-400"/> : <DocumentIcon className="w-6 h-6 text-gray-500 dark:text-gray-400"/>}
                   <div className="min-w-0 flex-1">
