@@ -49,10 +49,20 @@ func (c *Controller) reconcilePerNamespace(ctx context.Context, cfg *config.Conf
 	for _, t := range targets {
 		nsToPvcs[t.Namespace] = append(nsToPvcs[t.Namespace], t.PVCName)
 	}
+	// GC all per-PVC agents when switching to per-namespace mode
+	if err := c.Recon.GCPerPVCAll(ctx); err != nil {
+		c.Logger.Warnw("gc per-pvc agents failed", "error", err)
+	}
+	// Ensure namespace agents and GC stale ones
+	keep := map[string]struct{}{}
 	for ns, pvcs := range nsToPvcs {
+		keep[ns] = struct{}{}
 		if err := c.Recon.EnsureNamespaceAgent(ctx, ns, pvcs); err != nil {
 			c.Logger.Warnw("ns agent ensure failed", "ns", ns, "error", err)
 		}
+	}
+	if err := c.Recon.GCNamespaceAgents(ctx, keep); err != nil {
+		c.Logger.Warnw("gc ns agents failed", "error", err)
 	}
 }
 

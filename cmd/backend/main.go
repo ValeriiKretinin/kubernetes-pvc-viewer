@@ -5,8 +5,10 @@ import (
 	"embed"
 	iofs "io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -77,22 +79,34 @@ func main() {
 		api.Get("/tree", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
-			_ = proxy.Proxy(r.Context(), ns, backendServiceName(ns, pvc), "/v1/tree", w, r)
+			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
+			rc := r.Clone(r.Context())
+			rc.URL.RawQuery = newRaw
+			_ = proxy.Proxy(r.Context(), ns, svc, "/v1/tree", w, rc)
 		})
 		api.Get("/download", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
-			_ = proxy.Proxy(r.Context(), ns, backendServiceName(ns, pvc), "/v1/file", w, r)
+			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
+			rc := r.Clone(r.Context())
+			rc.URL.RawQuery = newRaw
+			_ = proxy.Proxy(r.Context(), ns, svc, "/v1/file", w, rc)
 		})
 		api.Delete("/file", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
-			_ = proxy.Proxy(r.Context(), ns, backendServiceName(ns, pvc), "/v1/file", w, r)
+			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
+			rc := r.Clone(r.Context())
+			rc.URL.RawQuery = newRaw
+			_ = proxy.Proxy(r.Context(), ns, svc, "/v1/file", w, rc)
 		})
 		api.Post("/upload", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
-			_ = proxy.Proxy(r.Context(), ns, backendServiceName(ns, pvc), "/v1/upload", w, r)
+			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
+			rc := r.Clone(r.Context())
+			rc.URL.RawQuery = newRaw
+			_ = proxy.Proxy(r.Context(), ns, svc, "/v1/upload", w, rc)
 		})
 		api.Get("/pvc-status", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")
@@ -138,3 +152,21 @@ func backendServiceName(ns, pvc string) string {
 }
 
 // agent name generation is delegated to internal/backend.AgentName
+
+// computeRouting picks target Service and rewrites path for per-namespace agents
+func computeRouting(cfg *config.Config, ns, pvc, path, rawQuery string) (svcName string, newRaw string) {
+	if cfg != nil && cfg.Mode.DataPlane == "agent-per-namespace" {
+		// namespace agent service; ensure path is under /data/<pvc>
+		q, _ := url.ParseQuery(rawQuery)
+		decoded := path
+		if u, err := url.QueryUnescape(decoded); err == nil {
+			decoded = u
+		}
+		if !strings.HasPrefix(decoded, "/") {
+			decoded = "/" + decoded
+		}
+		q.Set("path", "/"+pvc+decoded)
+		return backend.NamespaceAgentName(ns), q.Encode()
+	}
+	return backend.AgentName(ns, pvc), rawQuery
+}

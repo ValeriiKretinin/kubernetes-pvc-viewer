@@ -63,3 +63,37 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 	_, _ = r.Client.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
 	return nil
 }
+
+// GCPerPVCAll deletes all per-PVC agents and their services
+func (r *Reconciler) GCPerPVCAll(ctx context.Context) error {
+	// pods with app=pvc-viewer-agent
+	pods, err := r.Client.CoreV1().Pods("").List(ctx, metav1.ListOptions{LabelSelector: "app=pvc-viewer-agent"})
+	if err != nil {
+		return err
+	}
+	for _, p := range pods.Items {
+		ns := p.Namespace
+		name := p.Name
+		_ = r.Client.CoreV1().Pods(ns).Delete(ctx, name, metav1.DeleteOptions{})
+		_ = r.Client.CoreV1().Services(ns).Delete(ctx, name, metav1.DeleteOptions{})
+	}
+	return nil
+}
+
+// GCNamespaceAgents deletes namespace agents not in keep set
+func (r *Reconciler) GCNamespaceAgents(ctx context.Context, keepNamespaces map[string]struct{}) error {
+	pods, err := r.Client.CoreV1().Pods("").List(ctx, metav1.ListOptions{LabelSelector: "app=pvc-viewer-agent-ns"})
+	if err != nil {
+		return err
+	}
+	for _, p := range pods.Items {
+		if _, ok := keepNamespaces[p.Namespace]; ok {
+			continue
+		}
+		ns := p.Namespace
+		name := p.Name
+		_ = r.Client.CoreV1().Pods(ns).Delete(ctx, name, metav1.DeleteOptions{})
+		_ = r.Client.CoreV1().Services(ns).Delete(ctx, name, metav1.DeleteOptions{})
+	}
+	return nil
+}
