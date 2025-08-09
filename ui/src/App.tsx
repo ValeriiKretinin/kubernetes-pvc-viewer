@@ -36,7 +36,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    // reset PVC on namespace change to avoid stale selection/404s
+    // reset PVC and entries when namespace changes
     setPvc('')
     // show cached immediately if present
     if (namespace && pvcsCache[namespace]) {

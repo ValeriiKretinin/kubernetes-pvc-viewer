@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ContextMenu } from './ContextMenu'
-import { FolderIcon, DocumentIcon, Squares2X2Icon, Bars3BottomLeftIcon } from '@heroicons/react/24/outline'
+import { FolderIcon, DocumentIcon, Squares2X2Icon, Bars3BottomLeftIcon, CodeBracketIcon, DocumentTextIcon, PhotoIcon, ArchiveBoxIcon, MusicalNoteIcon, FilmIcon } from '@heroicons/react/24/outline'
 import { PreviewPane } from './PreviewPane'
 
 type Entry = { name: string; path: string; isDir: boolean; size: number; mod: string; uid?: number; gid?: number; mode?: number }
@@ -18,7 +18,7 @@ export function FilePanel({ namespace, pvc, query }: Props) {
   const [view, setView] = useState<'table'|'grid'>('table')
   const limit = 200
 
-  useEffect(() => { setPath('/'); setError('') }, [namespace, pvc])
+  useEffect(() => { setPath('/'); setError(''); setEntries([]); setTotal(0); setOffset(0) }, [namespace, pvc])
 
   useEffect(() => {
     if (!namespace || !pvc) return
@@ -47,6 +47,19 @@ export function FilePanel({ namespace, pvc, query }: Props) {
   const canNext = offset + limit < total
   const filtered = useMemo(() => entries.filter(e => !query || e.name.toLowerCase().includes(query.toLowerCase())), [entries, query])
 
+  const FileIcon = ({ name }: { name: string }) => {
+    const ext = name.toLowerCase().split('.').pop() || ''
+    const cls = 'w-5 h-5 text-gray-500 dark:text-gray-400'
+    if (['yml','yaml','json','md','txt','log','csv'].includes(ext)) return <DocumentTextIcon className={cls} />
+    if (['py','js','ts','tsx','go','rb','php','java','c','cpp','sh','sql'].includes(ext)) return <CodeBracketIcon className={cls} />
+    if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) return <PhotoIcon className={cls} />
+    if (['mp4','mov','avi','mkv','webm'].includes(ext)) return <FilmIcon className={cls} />
+    if (['mp3','wav','flac','ogg'].includes(ext)) return <MusicalNoteIcon className={cls} />
+    if (['zip','gz','tgz','bz2','xz','rar','7z','tar'].includes(ext)) return <ArchiveBoxIcon className={cls} />
+    if (ext === 'pdf') return <DocumentIcon className={cls} />
+    return <DocumentIcon className={cls} />
+  }
+
   // listen to tree navigation
   useEffect(() => {
     const onNav = (e: any) => {
@@ -74,7 +87,7 @@ export function FilePanel({ namespace, pvc, query }: Props) {
             </button>
           </div>
           <button className="btn" onClick={()=>handleUpload(namespace, pvc, path, setError, ()=>setPath(path))}>Upload here</button>
-          <button className="btn" onClick={()=>handleEmptyDir(namespace, pvc, path, setError, ()=>setPath(path))}>Empty dir</button>
+          <button className="btn" onClick={()=>confirmEmptyDir(namespace, pvc, path, setError, ()=>setPath(path))}>Empty dir</button>
         </div>
       </div>
       <div className="flex-1 overflow-auto">
@@ -88,7 +101,7 @@ export function FilePanel({ namespace, pvc, query }: Props) {
                 <tr key={e.path} className="border-b border-gray-100 dark:border-gray-900 hover:bg-gray-50 dark:hover:bg-gray-900/70 transition">
                   <td className="p-2">
                     <div className="flex items-center gap-2">
-                      {e.isDir ? <FolderIcon className="w-5 h-5 text-gray-500 dark:text-gray-400"/> : <DocumentIcon className="w-5 h-5 text-gray-500 dark:text-gray-400"/>}
+                      {e.isDir ? <FolderIcon className="w-5 h-5 text-gray-500 dark:text-gray-400"/> : <FileIcon name={e.name} />}
                       {e.isDir ? (
                         <button className="text-blue-600 dark:text-blue-400 font-medium" onClick={()=>{setPath(e.path); setOffset(0)}}>{e.name}</button>
                       ) : e.name}
@@ -116,7 +129,7 @@ export function FilePanel({ namespace, pvc, query }: Props) {
             {filtered.map(e => (
               <div key={e.path} className="panel p-3 transition hover:shadow-md relative z-20 overflow-visible" style={{ isolation: 'isolate' }}>
                 <div className="flex items-start gap-2">
-                  {e.isDir ? <FolderIcon className="w-6 h-6 text-gray-500 dark:text-gray-400"/> : <DocumentIcon className="w-6 h-6 text-gray-500 dark:text-gray-400"/>}
+                  {e.isDir ? <FolderIcon className="w-6 h-6 text-gray-500 dark:text-gray-400"/> : <span className="inline-flex"><FileIcon name={e.name} /></span>}
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-gray-900 dark:text-gray-100 font-medium">
                       {e.isDir ? (
@@ -235,6 +248,13 @@ function handleEmptyDir(ns:string, pvc:string, dir:string, setError:(s:string)=>
     if (!r.ok) throw new Error(`Empty dir failed: ${r.status}`)
     onDone()
   }).catch(e=>setError(String(e)))
+}
+
+function confirmEmptyDir(ns:string, pvc:string, dir:string, setError:(s:string)=>void, onDone:()=>void) {
+  const pretty = dir === '/' ? `/${pvc}/` : dir
+  const ok = window.confirm(`Delete ALL files inside ${pretty}? This cannot be undone.`)
+  if (!ok) return
+  handleEmptyDir(ns, pvc, dir, setError, onDone)
 }
 
 function formatMode(mode?: number) {

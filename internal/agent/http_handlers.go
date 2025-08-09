@@ -219,7 +219,7 @@ func (s *HTTPServer) handleUpload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "read-only", http.StatusForbidden)
 		return
 	}
-	if err := r.ParseMultipartForm(32 << 20); err != nil { // 32 MiB
+	if err := r.ParseMultipartForm(maxUploadBytes()); err != nil { // configurable (defaults to 512 MiB)
 		s.Logger.Warnw("parse form failed", "error", err)
 		http.Error(w, "bad form", http.StatusBadRequest)
 		return
@@ -271,6 +271,19 @@ func (s *HTTPServer) handleUpload(w http.ResponseWriter, r *http.Request) {
 		_ = dst.Close()
 	}
 	w.WriteHeader(http.StatusCreated)
+}
+
+func maxUploadBytes() int64 {
+	// PVC_VIEWER_MAX_UPLOAD_MB allows overriding upload limit (in MiB). Default 512 MiB. Hard cap 10 GiB.
+	if v := os.Getenv("PVC_VIEWER_MAX_UPLOAD_MB"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			if n > 10*1024 { // 10 GiB safety cap
+				n = 10 * 1024
+			}
+			return int64(n) << 20
+		}
+	}
+	return 512 << 20
 }
 
 func (s *HTTPServer) handleEmpty(w http.ResponseWriter, r *http.Request) {

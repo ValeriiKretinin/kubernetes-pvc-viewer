@@ -68,6 +68,48 @@ func (d *Discovery) BuildTargets(ctx context.Context, cfg *config.Config) ([]Tar
 	return out, nil
 }
 
+// BuildTargetsForNamespace lists PVCs only in the given namespace and applies matchers from cfg.
+func (d *Discovery) BuildTargetsForNamespace(ctx context.Context, cfg *config.Config, nsName string) ([]Target, error) {
+	nsMatch := matcher.New(cfg.Watch.Namespaces.Include, cfg.Watch.Namespaces.Exclude)
+	pvcMatch := matcher.New(cfg.Watch.Pvcs.Include, cfg.Watch.Pvcs.Exclude)
+	scMatch := matcher.New(cfg.Watch.StorageClasses.Include, cfg.Watch.StorageClasses.Exclude)
+
+	if len(cfg.Watch.Namespaces.Include) == 0 || len(cfg.Watch.Pvcs.Include) == 0 || len(cfg.Watch.StorageClasses.Include) == 0 {
+		return []Target{}, nil
+	}
+
+	if !nsMatch.Match(nsName) {
+		return []Target{}, nil
+	}
+	pvcs, err := d.Client.CoreV1().PersistentVolumeClaims(nsName).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	out := []Target{}
+	for _, pvc := range pvcs.Items {
+		if !pvcMatch.Match(pvc.Name) {
+			continue
+		}
+		if !hasRWX(pvc) {
+			continue
+		}
+		sc := ""
+		if pvc.Spec.StorageClassName != nil {
+			sc = *pvc.Spec.StorageClassName
+		}
+		if sc == "" && pvc.Spec.VolumeName != "" {
+			if pv, err := d.Client.CoreV1().PersistentVolumes().Get(ctx, pvc.Spec.VolumeName, metav1.GetOptions{}); err == nil {
+				sc = pv.Spec.StorageClassName
+			}
+		}
+		if sc == "" || !scMatch.Match(sc) {
+			continue
+		}
+		out = append(out, Target{Namespace: nsName, PVCName: pvc.Name, StorageClass: sc})
+	}
+	return out, nil
+}
+
 func hasRWX(p corev1.PersistentVolumeClaim) bool {
 	for _, m := range p.Spec.AccessModes {
 		if m == corev1.ReadWriteMany {

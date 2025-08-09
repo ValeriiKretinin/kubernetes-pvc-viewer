@@ -45,16 +45,15 @@ func RegisterReadAPIs(mux interface {
 		}
 		cfg := cfgProvider()
 		d := &Discovery{Client: client}
-		targets, err := d.BuildTargets(r.Context(), cfg)
+		// Faster: only scan selected namespace
+		targets, err := d.BuildTargetsForNamespace(r.Context(), cfg, ns)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		names := make([]string, 0)
+		names := make([]string, 0, len(targets))
 		for _, t := range targets {
-			if t.Namespace == ns {
-				names = append(names, t.PVCName)
-			}
+			names = append(names, t.PVCName)
 		}
 		sort.Strings(names)
 		w.Header().Set("Content-Type", "application/json")
