@@ -109,6 +109,8 @@ func (r *Reconciler) ensureAgent(ctx context.Context, t Target) error {
 				VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/data"}},
 				SecurityContext: &corev1.SecurityContext{
 					RunAsNonRoot:             boolPtr(true),
+					RunAsUser:                int64Ptr(65532),
+					RunAsGroup:               int64Ptr(65532),
 					AllowPrivilegeEscalation: boolPtr(false),
 					Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 				},
@@ -117,6 +119,7 @@ func (r *Reconciler) ensureAgent(ctx context.Context, t Target) error {
 				Name:         "data",
 				VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: t.PVCName}},
 			}},
+			SecurityContext: &corev1.PodSecurityContext{RunAsUser: int64Ptr(65532), RunAsGroup: int64Ptr(65532)},
 		},
 	}
 	_, _ = r.Client.CoreV1().Pods(t.Namespace).Create(ctx, pod, metav1.CreateOptions{})
@@ -131,7 +134,8 @@ func AgentName(ns, pvc string) string {
 	return "pvc-viewer-agent-" + hex.EncodeToString(h[:8])
 }
 
-func boolPtr(b bool) *bool { return &b }
+func boolPtr(b bool) *bool    { return &b }
+func int64Ptr(i int64) *int64 { return &i }
 
 // DiscoverTargets is a placeholder: in real impl we would list PVCs and apply matchers.
 func (r *Reconciler) DiscoverTargets(ctx context.Context) ([]Target, error) {
