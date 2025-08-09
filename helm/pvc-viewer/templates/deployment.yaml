@@ -34,6 +34,8 @@ spec:
               value: /config/config.yaml
             - name: PVC_VIEWER_AGENT_IMAGE
               value: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+            - name: PVC_VIEWER_LOG_LEVEL
+              value: info
           {{- if eq .Values.config.mode.dataPlane "mount-in-backend" }}
           volumeMounts:
             - name: config

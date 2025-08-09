@@ -40,7 +40,6 @@ type Config struct {
 	Mode struct {
 		DataPlane string `yaml:"dataPlane"`
 	} `yaml:"mode"`
-	AllowRWO bool `yaml:"allowRWO"`
 	Agents   struct {
 		SecurityDefaults  SecuritySpec   `yaml:"securityDefaults"`
 		SecurityOverrides []OverrideSpec `yaml:"securityOverrides"`

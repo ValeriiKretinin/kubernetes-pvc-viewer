@@ -20,8 +20,8 @@ func (d *Discovery) BuildTargets(ctx context.Context, cfg *config.Config) ([]Tar
 	// log inputs to aid troubleshooting
 	_ = cfg
 	nsMatch := matcher.New(cfg.Watch.Namespaces.Include, cfg.Watch.Namespaces.Exclude)
-	pvcMatch := matcher.New(cfg.Watch.Pvcs.Include, cfg.Watch.Pvcs.Exclude)
-	scMatch := matcher.New(cfg.Watch.StorageClasses.Include, cfg.Watch.StorageClasses.Exclude)
+    pvcMatch := matcher.New(cfg.Watch.Pvcs.Include, cfg.Watch.Pvcs.Exclude)
+    scMatch := matcher.New(cfg.Watch.StorageClasses.Include, cfg.Watch.StorageClasses.Exclude)
 
 	// If any include is empty -> treat as nothing per spec
 	if len(cfg.Watch.Namespaces.Include) == 0 || len(cfg.Watch.Pvcs.Include) == 0 || len(cfg.Watch.StorageClasses.Include) == 0 {
@@ -45,9 +45,10 @@ func (d *Discovery) BuildTargets(ctx context.Context, cfg *config.Config) ([]Tar
 			if !pvcMatch.Match(pvc.Name) {
 				continue
 			}
-			if !cfg.AllowRWO && !hasRWM(pvc) {
-				continue
-			}
+            // Require ReadWriteMany access; RWO cannot work with this architecture
+            if !hasRWX(pvc) {
+                continue
+            }
 			sc := ""
 			if pvc.Spec.StorageClassName != nil {
 				sc = *pvc.Spec.StorageClassName
@@ -67,11 +68,11 @@ func (d *Discovery) BuildTargets(ctx context.Context, cfg *config.Config) ([]Tar
 	return out, nil
 }
 
-func hasRWM(p corev1.PersistentVolumeClaim) bool {
-	for _, m := range p.Spec.AccessModes {
-		if m == corev1.ReadWriteMany || m == corev1.ReadWriteOncePod { // allow RWO-Pod too
-			return true
-		}
-	}
-	return false
+func hasRWX(p corev1.PersistentVolumeClaim) bool {
+    for _, m := range p.Spec.AccessModes {
+        if m == corev1.ReadWriteMany {
+            return true
+        }
+    }
+    return false
 }

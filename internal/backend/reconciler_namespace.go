@@ -2,6 +2,9 @@ package backend
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
+	"sort"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +24,7 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 	// Build volumes and mounts
 	volumes := make([]corev1.Volume, 0, len(pvcNames))
 	mounts := make([]corev1.VolumeMount, 0, len(pvcNames))
+	sort.Strings(pvcNames)
 	for _, pvc := range pvcNames {
 		vname := "v-" + pvc
 		volumes = append(volumes, corev1.Volume{
@@ -29,6 +33,9 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 		})
 		mounts = append(mounts, corev1.VolumeMount{Name: vname, MountPath: "/data/" + pvc})
 	}
+	// desired spec hash (PVC set only; extend if needed)
+	h := sha1.Sum([]byte(stringsJoin(pvcNames, ",")))
+	desiredHash := hex.EncodeToString(h[:8])
 
 	// Service
 	svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: labels}, Spec: corev1.ServiceSpec{
@@ -41,10 +48,15 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 	_, _ = r.Client.CoreV1().Services(namespace).Create(ctx, svc, metav1.CreateOptions{})
 
 	// Pod (replace if absent)
-	if _, err := r.Client.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{}); err == nil {
-		return nil
+	if existing, err := r.Client.CoreV1().Pods(namespace).Get(ctx, name, metav1.GetOptions{}); err == nil {
+		if existing.Annotations != nil && existing.Annotations["pvcviewer.k8s.io/spec-hash"] == desiredHash {
+			return nil
+		}
+		// spec changed -> recreate
+		_ = r.Client.CoreV1().Pods(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	}
-	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: labels}, Spec: corev1.PodSpec{
+	ann := map[string]string{"pvcviewer.k8s.io/spec-hash": desiredHash}
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: labels, Annotations: ann}, Spec: corev1.PodSpec{
 		Containers: []corev1.Container{{
 			Name:         "agent",
 			Image:        r.AgentImage,
@@ -62,6 +74,17 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 	}}
 	_, _ = r.Client.CoreV1().Pods(namespace).Create(ctx, pod, metav1.CreateOptions{})
 	return nil
+}
+
+func stringsJoin(in []string, sep string) string {
+	if len(in) == 0 {
+		return ""
+	}
+	out := in[0]
+	for i := 1; i < len(in); i++ {
+		out += sep + in[i]
+	}
+	return out
 }
 
 // GCPerPVCAll deletes all per-PVC agents and their services

@@ -26,6 +26,8 @@ func main() {
 	dataRoot := getenv("PVC_VIEWER_DATA_ROOT", "/data")
 	readOnly := getenv("PVC_VIEWER_READ_ONLY", "false") == "true"
 
+	sugar.Infow("agent config", "dataRoot", dataRoot, "readOnly", readOnly)
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)

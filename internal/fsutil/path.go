@@ -21,9 +21,9 @@ func JoinSecure(root, requestPath string) (string, error) {
 	// Trim leading slash to make it relative
 	rel := strings.TrimPrefix(clean, "/")
 	// Construct path under root
-	candidate := filepath.Join(root, rel)
+	candidate := rel
 
-	// Resolve symlinks step-by-step to avoid escapes
+	// Resolve symlinks step-by-step to avoid escapes relative to root
 	final, err := resolveWithinRoot(root, candidate)
 	if err != nil {
 		return "", err
@@ -31,14 +31,14 @@ func JoinSecure(root, requestPath string) (string, error) {
 	return final, nil
 }
 
-func resolveWithinRoot(root, path string) (string, error) {
+func resolveWithinRoot(root, relPath string) (string, error) {
 	rootAbs, err := filepath.Abs(root)
 	if err != nil {
 		return "", err
 	}
 
 	// Walk each segment, lstat and follow symlinks but verify containment
-	parts := splitPath(path)
+	parts := splitPath(relPath)
 	cur := rootAbs
 	for _, p := range parts {
 		cur = filepath.Join(cur, p)

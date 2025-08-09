@@ -77,7 +77,6 @@ watch:
     exclude: []
 mode:
   dataPlane: agent-per-pvc  # or mount-in-backend
-allowRWO: false             # skip RWO unless explicitly allowed
 agents:
   securityDefaults:
     runAsUser: 1000

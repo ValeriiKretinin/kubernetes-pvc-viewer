@@ -19,7 +19,6 @@ helm upgrade --install pvc-viewer \
 
 - `image.repository`, `image.tag` — container image for backend and agents (same image)
 - `config.watch.*` — glob include/exclude for namespaces, pvcs, storageClasses. Empty include means “match nothing”.
-- `config.allowRWO` — when false (default) skip PVC without ReadWriteMany (RWO is shown as MountBlocked in UI); when true allow RWO.
 - `config.mode.dataPlane` — data-plane mode:
   - `agent-per-namespace` (default): one agent per namespace, mounts all matched PVCs at `/data/<pvc>`; adding/removing PVC requires recreating that agent Pod.
   - `agent-per-pvc`: one lightweight agent Pod per matched PVC; no restarts on changes (recommended for full hot-reload experience).
