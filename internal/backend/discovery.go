@@ -50,6 +50,12 @@ func (d *Discovery) BuildTargets(ctx context.Context, cfg *config.Config) ([]Tar
 			if pvc.Spec.StorageClassName != nil {
 				sc = *pvc.Spec.StorageClassName
 			}
+			// Fallback: some PVCs have nil StorageClassName; resolve from bound PV if possible
+			if sc == "" && pvc.Spec.VolumeName != "" {
+				if pv, err := d.Client.CoreV1().PersistentVolumes().Get(ctx, pvc.Spec.VolumeName, metav1.GetOptions{}); err == nil {
+					sc = pv.Spec.StorageClassName
+				}
+			}
 			if sc == "" || !scMatch.Match(sc) {
 				continue
 			}

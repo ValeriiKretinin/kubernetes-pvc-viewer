@@ -75,14 +75,17 @@ func main() {
 
 	// API
 	r.Route("/api/v1", func(api chi.Router) {
-		backend.RegisterReadAPIs(api, clientset)
+		backend.RegisterReadAPIs(api, clientset, cfgState.Current)
 		api.Get("/tree", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")
 			pvc := r.URL.Query().Get("pvc")
 			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
 			rc := r.Clone(r.Context())
 			rc.URL.RawQuery = newRaw
-			_ = proxy.Proxy(r.Context(), ns, svc, "/v1/tree", w, rc)
+			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/tree", w, rc); err != nil {
+				http.Error(w, "agent unavailable", http.StatusBadGateway)
+				return
+			}
 		})
 		api.Get("/download", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")
@@ -90,7 +93,10 @@ func main() {
 			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
 			rc := r.Clone(r.Context())
 			rc.URL.RawQuery = newRaw
-			_ = proxy.Proxy(r.Context(), ns, svc, "/v1/file", w, rc)
+			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/file", w, rc); err != nil {
+				http.Error(w, "agent unavailable", http.StatusBadGateway)
+				return
+			}
 		})
 		api.Delete("/file", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")
@@ -98,7 +104,10 @@ func main() {
 			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
 			rc := r.Clone(r.Context())
 			rc.URL.RawQuery = newRaw
-			_ = proxy.Proxy(r.Context(), ns, svc, "/v1/file", w, rc)
+			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/file", w, rc); err != nil {
+				http.Error(w, "agent unavailable", http.StatusBadGateway)
+				return
+			}
 		})
 		api.Post("/upload", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")
@@ -106,7 +115,10 @@ func main() {
 			svc, newRaw := computeRouting(cfgState.Current(), ns, pvc, r.URL.Query().Get("path"), r.URL.RawQuery)
 			rc := r.Clone(r.Context())
 			rc.URL.RawQuery = newRaw
-			_ = proxy.Proxy(r.Context(), ns, svc, "/v1/upload", w, rc)
+			if err := proxy.Proxy(r.Context(), ns, svc, "/v1/upload", w, rc); err != nil {
+				http.Error(w, "agent unavailable", http.StatusBadGateway)
+				return
+			}
 		})
 		api.Get("/pvc-status", func(w http.ResponseWriter, r *http.Request) {
 			ns := r.URL.Query().Get("ns")

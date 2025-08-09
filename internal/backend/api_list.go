@@ -1,29 +1,39 @@
 package backend
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
+	"sort"
 
-	"github.com/bmatcuk/doublestar/v4"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/valeriikretinin/kubernetes-pvc-viewer/internal/config"
 )
 
 // RegisterReadAPIs wires list endpoints into the router.
+// It filters namespaces/PVCs using the same matching logic as reconciliation,
+// so the UI only shows items that the data plane is actually serving.
 func RegisterReadAPIs(mux interface {
 	Get(string, http.HandlerFunc)
-}, client kubernetes.Interface) {
+}, client kubernetes.Interface, cfgProvider func() *config.Config) {
 	mux.Get("/namespaces", func(w http.ResponseWriter, r *http.Request) {
-		ns, err := client.CoreV1().Namespaces().List(r.Context(), metav1.ListOptions{})
+		cfg := cfgProvider()
+		// Build eligible targets and return unique namespaces
+		d := &Discovery{Client: client}
+		targets, err := d.BuildTargets(r.Context(), cfg)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		names := make([]string, 0, len(ns.Items))
-		for _, n := range ns.Items {
-			names = append(names, n.Name)
+		set := map[string]struct{}{}
+		for _, t := range targets {
+			set[t.Namespace] = struct{}{}
 		}
+		names := make([]string, 0, len(set))
+		for n := range set {
+			names = append(names, n)
+		}
+		sort.Strings(names)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(names)
 	})
@@ -33,25 +43,20 @@ func RegisterReadAPIs(mux interface {
 			http.Error(w, "namespace required", http.StatusBadRequest)
 			return
 		}
-		pvcs, err := client.CoreV1().PersistentVolumeClaims(ns).List(context.Background(), metav1.ListOptions{})
+		cfg := cfgProvider()
+		d := &Discovery{Client: client}
+		targets, err := d.BuildTargets(r.Context(), cfg)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		scGlob := r.URL.Query().Get("storageClass")
-		names := make([]string, 0, len(pvcs.Items))
-		for _, p := range pvcs.Items {
-			if scGlob != "" {
-				sc := ""
-				if p.Spec.StorageClassName != nil {
-					sc = *p.Spec.StorageClassName
-				}
-				if ok, _ := doublestar.Match(scGlob, sc); !ok {
-					continue
-				}
+		names := make([]string, 0)
+		for _, t := range targets {
+			if t.Namespace == ns {
+				names = append(names, t.PVCName)
 			}
-			names = append(names, p.Name)
 		}
+		sort.Strings(names)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(names)
 	})
