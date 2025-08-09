@@ -21,7 +21,15 @@ export function FilePanel({ namespace, pvc, query }: Props) {
   const [confirm, setConfirm] = useState<{open:boolean; path:string}>({ open:false, path:'' })
   const limit = 200
 
-  useEffect(() => { setPath('/'); setError(''); setEntries([]); setTotal(0); setOffset(0) }, [namespace, pvc])
+  useEffect(() => {
+    setPath('/')
+    setError('')
+    setEntries([])
+    setTotal(0)
+    setOffset(0)
+    setPreview(null)
+    setConfirm({ open:false, path:'' } as any)
+  }, [namespace, pvc])
 
   useEffect(() => {
     if (!namespace || !pvc) return

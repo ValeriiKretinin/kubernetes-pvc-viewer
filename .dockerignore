@@ -1,22 +1,46 @@
 # VCS
 .git
+.github
+.gitignore
 
 # Build artifacts
-bin
+bin/
+dist/
+build/
 
 # IDE/system
-.idea
-.vscode
-.DS_Store
+.idea/
+.vscode/
+**/.DS_Store
+**/*.swp
+**/*.swo
 
 # Node (UI)
-ui/node_modules
-ui/.vite
-ui/.cache
-ui/dist
+ui/node_modules/
+ui/.vite/
+ui/.cache/
+ui/dist/
+ui/.eslintcache
+ui/.turbo/
+ui/.next/
 
 # Generated frontend assets (we rebuild inside image)
-cmd/backend/static
+cmd/backend/static/
 
 # Helm packaged charts
 helm/pvc-viewer-*.tgz
+
+# Logs & temp
+**/*.log
+**/tmp/**
+**/.cache/**
+
+# Test/coverage
+**/coverage/**
+**/.nyc_output/**
+
+# Docs/media not needed in image
+docs/**
+
+# Local env files
+.env*

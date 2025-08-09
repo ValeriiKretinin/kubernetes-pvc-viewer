@@ -23,6 +23,12 @@ The single container image embeds the React UI, backend API gateway/orchestrator
 - Prometheus metrics endpoint (/metrics)
 - Helm chart with RBAC, Service, Ingress (optional), NetworkPolicy, ConfigMap
 
+## Demo
+
+> Put a short demo GIF at `docs/demo.gif` (kept out of the Docker image by .dockerignore). Replace the file and it will show up below.
+
+![demo](docs/demo.gif)
+
 ## Architecture
 
 ```
