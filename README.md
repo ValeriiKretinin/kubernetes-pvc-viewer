@@ -39,31 +39,30 @@ Web UI (static)  <—HTTPS—>  Backend (Go)
 
 ## Installation (OCI Helm chart)
 
-Recommended: install directly from OCI registry (no local build required).
+Install directly from public OCI registry (no login required).
 
 ```
-helm registry login ghcr.io -u <your_github_user> -p <token_with_packages_write_or_read>
-
-# stable release
+# Stable release
 helm upgrade --install pvc-viewer \
-  oci://ghcr.io/<owner>/charts/pvc-viewer \
-  --version <X.Y.Z> \
+  oci://ghcr.io/valeriikretinin/charts/pvc-viewer \
+  --version 0.1.0 \
   -n pvc-viewer --create-namespace \
-  --set image.repository=ghcr.io/<owner>/kubernetes-pvc-viewer \
-  --set image.tag=v<X.Y.Z>
+  --set image.repository=ghcr.io/valeriikretinin/kubernetes-pvc-viewer \
+  --set image.tag=v0.1.0
 
-# or latest dev build from main (if published by CI)
+# Latest dev build from main (if published by CI)
 helm upgrade --install pvc-viewer \
-  oci://ghcr.io/<owner>/charts/pvc-viewer \
+  oci://ghcr.io/valeriikretinin/charts/pvc-viewer \
   --version 0.0.0-<shortsha> \
   -n pvc-viewer --create-namespace \
-  --set image.repository=ghcr.io/<owner>/kubernetes-pvc-viewer \
+  --set image.repository=ghcr.io/valeriikretinin/kubernetes-pvc-viewer \
   --set image.tag=latest
 ```
 
 Optionally enable Ingress in `values.yaml` (or via `--set`).
 
-> Note: replace `<owner>` with your GitHub org/user (lowercase). If using another registry, adapt `image.repository`.
+Note:
+- The container image `ghcr.io/valeriikretinin/kubernetes-pvc-viewer` and chart `ghcr.io/valeriikretinin/charts/pvc-viewer` are published as Public packages. If you fork, make sure to set your GHCR packages visibility to Public to allow anonymous pulls.
 
 ## Configuration (ConfigMap)
 
