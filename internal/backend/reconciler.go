@@ -146,12 +146,14 @@ func (r *Reconciler) ensureAgent(ctx context.Context, t Target) error {
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: t.Namespace, Labels: labels, Annotations: map[string]string{"pvcviewer.k8s.io/spec-hash": desiredHash}},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{{
-				Name:         "agent",
-				Image:        r.AgentImage,
-				Command:      []string{"/bin/agent"},
-				Env:          []corev1.EnvVar{{Name: "PVC_VIEWER_DATA_ROOT", Value: "/data"}, {Name: "PVC_VIEWER_READ_ONLY", Value: boolString(ro)}},
-				Ports:        []corev1.ContainerPort{{ContainerPort: 8090}},
-				VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/data", ReadOnly: ro}},
+				Name:           "agent",
+				Image:          r.AgentImage,
+				Command:        []string{"/bin/agent"},
+				Env:            []corev1.EnvVar{{Name: "PVC_VIEWER_DATA_ROOT", Value: "/data"}, {Name: "PVC_VIEWER_READ_ONLY", Value: boolString(ro)}},
+				Ports:          []corev1.ContainerPort{{ContainerPort: 8090}},
+				VolumeMounts:   []corev1.VolumeMount{{Name: "data", MountPath: "/data", ReadOnly: ro}},
+				ReadinessProbe: &corev1.Probe{ProbeHandler: corev1.ProbeHandler{TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8090)}}, PeriodSeconds: 2, FailureThreshold: 3},
+				LivenessProbe:  &corev1.Probe{ProbeHandler: corev1.ProbeHandler{TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8090)}}, PeriodSeconds: 10, FailureThreshold: 6},
 				SecurityContext: &corev1.SecurityContext{
 					RunAsNonRoot:             boolPtr(true),
 					RunAsUser:                pickInt(sec.RunAsUser, 65532),

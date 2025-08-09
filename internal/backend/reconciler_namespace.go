@@ -138,12 +138,14 @@ func (r *Reconciler) EnsureNamespaceAgent(ctx context.Context, namespace string,
 			}
 			pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: labels, Annotations: ann}, Spec: corev1.PodSpec{
 				Containers: []corev1.Container{{
-					Name:         "agent",
-					Image:        r.AgentImage,
-					Command:      []string{"/bin/agent"},
-					Env:          []corev1.EnvVar{{Name: "PVC_VIEWER_DATA_ROOT", Value: "/data"}, {Name: "PVC_VIEWER_READ_ONLY", Value: boolString(sec.ReadOnly)}},
-					Ports:        []corev1.ContainerPort{{ContainerPort: 8090}},
-					VolumeMounts: mounts,
+					Name:           "agent",
+					Image:          r.AgentImage,
+					Command:        []string{"/bin/agent"},
+					Env:            []corev1.EnvVar{{Name: "PVC_VIEWER_DATA_ROOT", Value: "/data"}, {Name: "PVC_VIEWER_READ_ONLY", Value: boolString(sec.ReadOnly)}},
+					Ports:          []corev1.ContainerPort{{ContainerPort: 8090}},
+					VolumeMounts:   mounts,
+					ReadinessProbe: &corev1.Probe{ProbeHandler: corev1.ProbeHandler{TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8090)}}, PeriodSeconds: 2, FailureThreshold: 3},
+					LivenessProbe:  &corev1.Probe{ProbeHandler: corev1.ProbeHandler{TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt(8090)}}, PeriodSeconds: 10, FailureThreshold: 6},
 					SecurityContext: &corev1.SecurityContext{
 						RunAsNonRoot:             boolPtr(true),
 						RunAsUser:                pickInt(sec.RunAsUser, 65532),

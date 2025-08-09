@@ -89,7 +89,7 @@ export function FilePanel({ namespace, pvc, query }: Props) {
               <Squares2X2Icon className="w-4 h-4" /> Grid
             </button>
           </div>
-          <button className="btn" onClick={()=>handleUpload(namespace, pvc, path, setError, ()=>setReloadTick(t=>t+1))}>Upload here</button>
+          <button className="btn" onClick={()=>handleUpload(namespace, pvc, path, setError, ()=>setReloadTick(t=>t+1))}>Upload File</button>
           <button className="btn" onClick={()=>setConfirm({ open:true, path })}>Empty dir</button>
         </div>
       </div>
