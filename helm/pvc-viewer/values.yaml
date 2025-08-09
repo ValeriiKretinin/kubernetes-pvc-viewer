@@ -36,22 +36,7 @@ config:
       fsGroup: 1000
       supplementalGroups: [65534]
       readOnly: false
-    securityOverrides:
-      - pvcMatch: "airflow-*"
-        runAsUser: 50000
-        runAsGroup: 0
-        fsGroup: 0
-        supplementalGroups: [0]
-
-      - match: "nfs-*"
-        runAsGroup: 1000
-        fsGroup: 1000
-        supplementalGroups: [1000]
-
-      - match: "ceph*"
-        runAsGroup: 16777216
-        fsGroup: 16777216
-        supplementalGroups: [16777216]
+    securityOverrides: []
 
 
 rbac:
