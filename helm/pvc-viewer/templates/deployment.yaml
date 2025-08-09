@@ -27,6 +27,8 @@ spec:
             runAsNonRoot: true
             readOnlyRootFilesystem: true
             allowPrivilegeEscalation: false
+            runAsUser: 65532 # 'nonroot' in distroless
+            runAsGroup: 65532
           env:
             - name: PVC_VIEWER_CONFIG
               value: /config/config.yaml
