@@ -54,13 +54,11 @@ Agents (Go)
 Install directly from public OCI registry (no login required).
 
 ```
-# Stable release
+# Install (pin versions as needed)
 helm upgrade --install pvc-viewer \
   oci://ghcr.io/valeriikretinin/charts/pvc-viewer \
-  --version 0.1.0 \
   -n pvc-viewer --create-namespace \
-  --set image.repository=ghcr.io/valeriikretinin/kubernetes-pvc-viewer \
-  --set image.tag=v0.1.0
+  --set image.repository=ghcr.io/valeriikretinin/kubernetes-pvc-viewer
 
 ```
 
