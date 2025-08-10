@@ -1,0 +1,31 @@
+# git-cliff configuration
+[changelog]
+header = "# Changelog"
+body = """
+{% for group, commits in commits | group_by(attribute=\"group\") %}
+### {{ group }}
+{% for c in commits %}- {{ c.message | trim }} ({{ c.id | truncate(length=7) }})
+{% endfor %}
+{% endfor %}
+"""
+trim = true
+footer = "\n"
+
+[git]
+conventional_commits = true
+filter_commits = true
+commit_preprocessors = []
+commit_parsers = [
+  { message = "^feat", group = "Features" },
+  { message = "^fix",  group = "Bug Fixes" },
+  { message = "^perf", group = "Performance" },
+  { message = "^refactor", group = "Refactor" },
+  { message = "^docs", group = "Documentation" },
+  { message = "^chore", group = "Chores" },
+  { message = "^build|^ci", group = "Build/CI" },
+]
+tag_pattern = "v[0-9]*"
+skip_tags = []
+exclude_path = []
+
+

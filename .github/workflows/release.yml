@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Helm
         uses: azure/setup-helm@v4
@@ -26,20 +28,25 @@ jobs:
           helm dependency build helm/pvc-viewer || true
           helm package helm/pvc-viewer --version ${VERSION} --app-version ${VERSION} -d dist
 
-      - name: Generate changelog
-        id: changelog
-        uses: mikepenz/release-changelog-builder-action@v4
+      - name: Generate CHANGELOG.md (git-cliff)
+        uses: orhun/git-cliff-action@v2
         with:
-          configuration: '{}'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          config: .git-cliff.toml
+          args: --tag ${GITHUB_REF_NAME} --output CHANGELOG.md
+      - name: Commit CHANGELOG.md
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md || true
+          git commit -m "docs(changelog): update for ${GITHUB_REF_NAME}" || echo "no changes"
+          git push || true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          body: ${{ steps.changelog.outputs.changelog }}
+          body_path: CHANGELOG.md
           draft: false
           prerelease: false
           files: dist/*.tgz

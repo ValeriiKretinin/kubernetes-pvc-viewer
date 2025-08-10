@@ -32,17 +32,21 @@ The single container image embeds the React UI, backend API gateway/orchestrator
 ```
 Web UI (static)  <—HTTPS—>  Backend (Go)
                                  ├─ ConfigMap watcher (hot reload)
-                                 ├─ Reconciler (creates/deletes agent Pods & headless Services)
-                                 └─ Proxy to agents (HTTP)
+                                 ├─ Reconciler (ensures agent Pods/Services)
+                                 └─ Proxy to agents (HTTP, per‑PVC or per‑namespace group)
 
-                 Agents (Go) — one Pod per PVC (RWM)
-                 └─ mount PVC at /data, file API (list/get/rm/upload)
+Data plane:
+  • agent‑per‑namespace → one or more Pods per namespace (grouped by security profile)
+  • agent‑per‑pvc       → one Pod per matched PVC
+
+Agents (Go)
+  └─ mount PVC at /data, file API (list/get/rm/upload/empty)
 ```
 
 ## Modes
 
 - agent-per-namespace (default): creates one or more agents per namespace grouped by effective security profile (fsGroup/runAs/supplemental/readOnly). Each agent mounts matched PVCs at `/data/<pvc>`.
-- agent-per-pvc: backend manages one lightweight agent per matched PVC (полный hot-reload без рестартов)
+- agent-per-pvc: backend manages one lightweight agent per matched PVC (full hot-reload, no restarts)
 - mount-in-backend: backend Pod mounts multiple PVCs (defined in values), requires restart on changes
 
 ## Installation (OCI Helm chart)
