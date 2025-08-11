@@ -219,10 +219,8 @@ func computeRouting(clientset kubernetes.Interface, cfg *config.Config, ns, pvc,
 	if cfg != nil && cfg.Mode.DataPlane == "agent-per-namespace" {
 		// namespace agent service; ensure path is under /data/<pvc>
 		q, _ := url.ParseQuery(rawQuery)
+		// path from r.URL.Query().Get("path") is already decoded, avoid double-decoding
 		decoded := path
-		if u, err := url.QueryUnescape(decoded); err == nil {
-			decoded = u
-		}
 		if !strings.HasPrefix(decoded, "/") {
 			decoded = "/" + decoded
 		}
